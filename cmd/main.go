@@ -20,46 +20,27 @@ import (
 	"net/http"
 	"os"
 
-	"github.com/banzaicloud/jwt-to-rbac/internal/errorhandler"
+	"github.com/banzaicloud/jwt-to-rbac/internal/config"
 	"github.com/banzaicloud/jwt-to-rbac/internal/log"
 	"github.com/banzaicloud/jwt-to-rbac/pkg/rbachandler"
 	"github.com/banzaicloud/jwt-to-rbac/pkg/tokenhandler"
-	"github.com/goph/emperror"
 	"github.com/goph/logur"
-	"github.com/spf13/viper"
 )
 
 // var kubeconfig string
 
-type Config struct {
-	ClientID  string
-	IssuerURL string
-}
-
 var logger logur.Logger
-var errorHandler emperror.Handler
-var configuration Config
 
 func init() {
 
-	config := log.Config{Format: "json", Level: "4", NoColor: true}
-	logger = log.NewLogger(config)
+	logConfig := log.Config{Format: "json", Level: "4", NoColor: true}
+	logger = log.NewLogger(logConfig)
 	logger = log.WithFields(logger, map[string]interface{}{"package": "main"})
 
-	errorHandler = errorhandler.New(logger)
-	defer emperror.HandleRecover(errorHandler)
-
-	viper.SetConfigName("config")
-	viper.AddConfigPath("config")
-
-	if err := viper.ReadInConfig(); err != nil {
-		errorHandler.Handle(err)
-	}
-	err := viper.Unmarshal(&configuration)
+	err := config.InitConfig()
 	if err != nil {
-		errorHandler.Handle(err)
+		logger.Error("configuration error", map[string]interface{}{"error": err})
 	}
-
 }
 
 // GetHandler handles the index route
@@ -82,7 +63,7 @@ func PostHandler(w http.ResponseWriter, r *http.Request) {
 		}
 		user, err := tokenhandler.Authorize(string(body))
 		if err != nil {
-			errorHandler.Handle(err)
+			logger.Error("posthandler", map[string]interface{}{"error": err})
 		} else {
 			b, _ := json.Marshal(user)
 			w.Write(b)
@@ -94,17 +75,17 @@ func PostHandler(w http.ResponseWriter, r *http.Request) {
 
 func main() {
 
-	logger.Info("configuration", map[string]interface{}{"ClientID": configuration.ClientID})
-	logger.Info("configureation", map[string]interface{}{"IssuerURL": configuration.IssuerURL})
+	logger.Info("configuration info", map[string]interface{}{
+		"ClientID":   config.Configuration.ClientID,
+		"IssuerURL":  config.Configuration.IssuerURL,
+		"ServerPort": config.Configuration.ServerPort})
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("/rbac", GetHandler)
 	mux.HandleFunc("/token", PostHandler)
-
-	logger.Info("Listening on :5555", nil)
-	err := http.ListenAndServe(":5555", mux)
+	err := http.ListenAndServe(":"+config.Configuration.ServerPort, mux)
 	if err != nil {
-		errorHandler.Handle(err)
+		logger.Error("starting http server failed", map[string]interface{}{"error": err})
 		os.Exit(1)
 	}
 }

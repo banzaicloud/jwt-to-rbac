@@ -12,14 +12,38 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package errorhandler
+package config
 
 import (
+	"os"
+
 	"github.com/goph/emperror"
-	"github.com/goph/logur"
+	"github.com/spf13/viper"
 )
 
-// New returns a new error handler.
-func New(logger logur.Logger) emperror.Handler {
-	return logur.NewErrorHandler(logger)
+type config struct {
+	ClientID   string
+	IssuerURL  string
+	ServerPort string
+}
+
+// Configuration struct
+var Configuration config
+
+// InitConfig get config
+func InitConfig() error {
+
+	viper.SetConfigName("config")
+	viper.AddConfigPath("config")
+	viper.SetConfigType("yaml")
+	viper.AddConfigPath(os.Getenv("CONFIG_DIR"))
+
+	if err := viper.ReadInConfig(); err != nil {
+		return emperror.Wrap(err, "read configuration failed")
+	}
+	err := viper.Unmarshal(&Configuration)
+	if err != nil {
+		return emperror.Wrap(err, "unmarshal configuration failed")
+	}
+	return nil
 }

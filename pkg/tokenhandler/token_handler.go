@@ -19,18 +19,12 @@ import (
 	"errors"
 	"net/http"
 
-	"github.com/banzaicloud/jwt-to-rbac/internal/errorhandler"
+	"github.com/banzaicloud/jwt-to-rbac/internal/config"
 	"github.com/banzaicloud/jwt-to-rbac/internal/log"
 	oidc "github.com/coreos/go-oidc"
 	"github.com/goph/emperror"
 	"github.com/goph/logur"
-	"github.com/spf13/viper"
 )
-
-type Config struct {
-	ClientID  string
-	IssuerURL string
-}
 
 type User struct {
 	Email  string
@@ -38,46 +32,35 @@ type User struct {
 }
 
 var logger logur.Logger
-var errorHandler emperror.Handler
-var configuration Config
+
+var issuerURL string
+var clientID string
 
 func init() {
 
-	config := log.Config{Format: "json", Level: "4", NoColor: true}
-	logger = log.NewLogger(config)
+	logConfig := log.Config{Format: "json", Level: "4", NoColor: true}
+	logger = log.NewLogger(logConfig)
 	logger = log.WithFields(logger, map[string]interface{}{"package": "tokenhandler"})
-
-	errorHandler = errorhandler.New(logger)
-	defer emperror.HandleRecover(errorHandler)
-
-	viper.SetConfigName("config")
-	viper.AddConfigPath("config")
-
-	if err := viper.ReadInConfig(); err != nil {
-		errorHandler.Handle(err)
-	}
-	err := viper.Unmarshal(&configuration)
-	if err != nil {
-		errorHandler.Handle(err)
-	}
-
 }
 
-func initProvider() *oidc.IDTokenVerifier {
+func initProvider() (*oidc.IDTokenVerifier, error) {
 	// Initialize a provider by specifying dex's issuer URL.
 	ctx := oidc.ClientContext(context.Background(), http.DefaultClient)
-	provider, err := oidc.NewProvider(ctx, configuration.IssuerURL)
+	provider, err := oidc.NewProvider(ctx, config.Configuration.IssuerURL)
 	if err != nil {
-		errorHandler.Handle(err)
+		return nil, emperror.Wrap(err, "oidc provider init failed")
 	}
 	// Create an ID token parser, but only trust ID tokens issued to "example-app"
-	idTokenVerifier := provider.Verifier(&oidc.Config{ClientID: configuration.ClientID})
-	return idTokenVerifier
+	idTokenVerifier := provider.Verifier(&oidc.Config{ClientID: config.Configuration.ClientID})
+	return idTokenVerifier, nil
 }
 
 // Authorize verifies a bearer token and pulls user information form the claims.
 func Authorize(bearerToken string) (*User, error) {
-	idTokenVerifier := initProvider()
+	idTokenVerifier, err := initProvider()
+	if err != nil {
+		logger.Error("authorize", map[string]interface{}{"error": err})
+	}
 	idToken, err := idTokenVerifier.Verify(oidc.ClientContext(context.Background(), http.DefaultClient), bearerToken)
 	if err != nil {
 		return nil, emperror.With(err, "token", bearerToken)

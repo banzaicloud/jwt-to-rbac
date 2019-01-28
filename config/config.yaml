@@ -1,2 +1,3 @@
-ClientID: "example-app"
-IssuerURL: "http://localhost/dex"
+clientID: "example-app"
+issuerURL: "http://localhost/dex"
+serverPort: "5555"
