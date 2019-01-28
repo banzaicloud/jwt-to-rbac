@@ -20,27 +20,35 @@ import (
 	"net/http"
 
 	"github.com/banzaicloud/jwt-to-rbac/internal/config"
+	"github.com/banzaicloud/jwt-to-rbac/internal/errorhandler"
 	"github.com/banzaicloud/jwt-to-rbac/internal/log"
 	oidc "github.com/coreos/go-oidc"
 	"github.com/goph/emperror"
 	"github.com/goph/logur"
 )
 
+type federatedClaimas struct {
+	ConnectorID string `json:"connector_id"`
+	UserID      string `json:"user_id"`
+}
+
 type User struct {
-	Email  string
-	Groups []string
+	Email            string
+	Groups           []string
+	FederatedClaimas federatedClaimas
 }
 
 var logger logur.Logger
-
-var issuerURL string
-var clientID string
+var errorHandler emperror.Handler
 
 func init() {
 
 	logConfig := log.Config{Format: "json", Level: "4", NoColor: true}
 	logger = log.NewLogger(logConfig)
 	logger = log.WithFields(logger, map[string]interface{}{"package": "tokenhandler"})
+
+	errorHandler = errorhandler.New(logger)
+	defer emperror.HandleRecover(errorHandler)
 }
 
 func initProvider() (*oidc.IDTokenVerifier, error) {
@@ -48,7 +56,7 @@ func initProvider() (*oidc.IDTokenVerifier, error) {
 	ctx := oidc.ClientContext(context.Background(), http.DefaultClient)
 	provider, err := oidc.NewProvider(ctx, config.Configuration.IssuerURL)
 	if err != nil {
-		return nil, emperror.Wrap(err, "oidc provider init failed")
+		return nil, emperror.WrapWith(err, "provider init failed", "issuerURL", config.Configuration.IssuerURL)
 	}
 	// Create an ID token parser, but only trust ID tokens issued to "example-app"
 	idTokenVerifier := provider.Verifier(&oidc.Config{ClientID: config.Configuration.ClientID})
@@ -59,17 +67,19 @@ func initProvider() (*oidc.IDTokenVerifier, error) {
 func Authorize(bearerToken string) (*User, error) {
 	idTokenVerifier, err := initProvider()
 	if err != nil {
-		logger.Error("authorize", map[string]interface{}{"error": err})
+		errorHandler.Handle(err)
 	}
 	idToken, err := idTokenVerifier.Verify(oidc.ClientContext(context.Background(), http.DefaultClient), bearerToken)
 	if err != nil {
 		return nil, emperror.With(err, "token", bearerToken)
 	}
+
 	// Extract custom claims.
 	var claims struct {
-		Email    string   `json:"email"`
-		Verified bool     `json:"email_verified"`
-		Groups   []string `json:"groups"`
+		Email           string           `json:"email"`
+		Verified        bool             `json:"email_verified"`
+		Groups          []string         `json:"groups"`
+		FederatedClaims federatedClaimas `json:"federated_claims"`
 	}
 	if err := idToken.Claims(&claims); err != nil {
 		return nil, emperror.Wrap(err, "failed to parse claims")
@@ -77,5 +87,5 @@ func Authorize(bearerToken string) (*User, error) {
 	if !claims.Verified {
 		return nil, emperror.With(errors.New("email in returned claims was not verified"), "claims.Email", claims.Email)
 	}
-	return &User{claims.Email, claims.Groups}, nil
+	return &User{claims.Email, claims.Groups, claims.FederatedClaims}, nil
 }

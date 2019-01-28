@@ -21,15 +21,16 @@ import (
 	"os"
 
 	"github.com/banzaicloud/jwt-to-rbac/internal/config"
+	"github.com/banzaicloud/jwt-to-rbac/internal/errorhandler"
 	"github.com/banzaicloud/jwt-to-rbac/internal/log"
 	"github.com/banzaicloud/jwt-to-rbac/pkg/rbachandler"
 	"github.com/banzaicloud/jwt-to-rbac/pkg/tokenhandler"
+	"github.com/goph/emperror"
 	"github.com/goph/logur"
 )
 
-// var kubeconfig string
-
 var logger logur.Logger
+var errorHandler emperror.Handler
 
 func init() {
 
@@ -37,9 +38,12 @@ func init() {
 	logger = log.NewLogger(logConfig)
 	logger = log.WithFields(logger, map[string]interface{}{"package": "main"})
 
+	errorHandler = errorhandler.New(logger)
+	defer emperror.HandleRecover(errorHandler)
+
 	err := config.InitConfig()
 	if err != nil {
-		logger.Error("configuration error", map[string]interface{}{"error": err})
+		errorHandler.Handle(err)
 	}
 }
 
@@ -63,10 +67,11 @@ func PostHandler(w http.ResponseWriter, r *http.Request) {
 		}
 		user, err := tokenhandler.Authorize(string(body))
 		if err != nil {
-			logger.Error("posthandler", map[string]interface{}{"error": err})
+			errorHandler.Handle(err)
 		} else {
 			b, _ := json.Marshal(user)
 			w.Write(b)
+			rbachandler.CreateRBAC(user)
 		}
 	} else {
 		http.Error(w, "Invalid request method", http.StatusMethodNotAllowed)
@@ -85,7 +90,7 @@ func main() {
 	mux.HandleFunc("/token", PostHandler)
 	err := http.ListenAndServe(":"+config.Configuration.ServerPort, mux)
 	if err != nil {
-		logger.Error("starting http server failed", map[string]interface{}{"error": err})
+		errorHandler.Handle(err)
 		os.Exit(1)
 	}
 }
