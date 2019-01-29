@@ -16,6 +16,7 @@ package rbachandler
 
 import (
 	"flag"
+	"strings"
 
 	"github.com/banzaicloud/jwt-to-rbac/internal/errorhandler"
 	"github.com/banzaicloud/jwt-to-rbac/internal/log"
@@ -37,6 +38,26 @@ var logger logur.Logger
 var errorHandler emperror.Handler
 
 var clusterConfig *rest.Config
+
+// implements create and List ClusterRoleBinding
+type clusterRoleBinding struct {
+	name      string
+	saName    string
+	roleName  string
+	nameSpace []string
+}
+
+// implements create ClusterRole
+type clusterRole struct {
+	name      string
+	verbs     []string
+	resources []string
+	apiGroups []string
+}
+
+type serviceAccount struct {
+	name string
+}
 
 func init() {
 	// flag.StringVar(&kubeconfig, "", "", "path to Kubernetes config file")
@@ -111,7 +132,7 @@ func listNamespaces() []string {
 	return nsList
 }
 
-func createServiceAccount(saName string) error {
+func (sa *serviceAccount) create() error {
 	rbacConf, _ := clientcorev1.NewForConfig(clusterConfig)
 	saObj := &apicorev1.ServiceAccount{
 		TypeMeta: metav1.TypeMeta{
@@ -119,27 +140,25 @@ func createServiceAccount(saName string) error {
 			APIVersion: "v1",
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      saName,
+			Name:      sa.name,
 			Namespace: "default",
 		},
 	}
 	_, err := rbacConf.ServiceAccounts("default").Create(saObj)
 	if err != nil {
-		return emperror.WrapWith(err, "create serviceaccount failed", "saName", saName)
+		return emperror.WrapWith(err, "create serviceaccount failed", "saName", sa)
 	}
 	return nil
 }
 
-// BindClusterRoleToServiceAccount bind role to serviceaccount
-func bindClusterRoleToServiceAccount(saName string, roleName string, nameSpace []string) error {
+func (rb *clusterRoleBinding) create() error {
 	rbacConf, _ := clientrbacv1.NewForConfig(clusterConfig)
-	clusterRoleBindingName := "testclusterrole-bind"
 	var subjects []apirbacv1.Subject
-	for _, ns := range nameSpace {
+	for _, ns := range rb.nameSpace {
 		subject := apirbacv1.Subject{
 			Kind:      "ServiceAccount",
 			APIGroup:  "",
-			Name:      saName,
+			Name:      rb.saName,
 			Namespace: ns,
 		}
 		subjects = append(subjects, subject)
@@ -150,40 +169,28 @@ func bindClusterRoleToServiceAccount(saName string, roleName string, nameSpace [
 			APIVersion: "v1",
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name: clusterRoleBindingName,
+			Name: rb.name,
 		},
 		Subjects: subjects,
 		RoleRef: apirbacv1.RoleRef{
 			Kind:     "ClusterRole",
 			APIGroup: "rbac.authorization.k8s.io",
-			Name:     roleName,
+			Name:     rb.roleName,
 		},
 	}
 	_, err := rbacConf.ClusterRoleBindings().Create(bindObj)
 	if err != nil {
-		return emperror.WrapWith(err, "create clusterrolebinding failed", "ClusterRoleBinding", clusterRoleBindingName)
+		return emperror.WrapWith(err, "create clusterrolebinding failed", "ClusterRoleBinding", rb.name)
 	}
 	return nil
 }
 
-func createClusterRole() error {
+func (r *clusterRole) create() error {
 	rbacConf, _ := clientrbacv1.NewForConfig(clusterConfig)
-	clusterRoleName := "test_role"
 	rules := apirbacv1.PolicyRule{
-		Verbs: []string{
-			"get",
-			"list",
-		},
-		Resources: []string{
-			"deployments",
-			"replicasets",
-			"pods",
-		},
-		APIGroups: []string{
-			"",
-			"extensions",
-			"apps",
-		},
+		Verbs:     r.verbs,
+		Resources: r.resources,
+		APIGroups: r.apiGroups,
 	}
 	roleObj := &apirbacv1.ClusterRole{
 		TypeMeta: metav1.TypeMeta{
@@ -191,18 +198,18 @@ func createClusterRole() error {
 			APIVersion: "v1",
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name: clusterRoleName,
+			Name: r.name,
 		},
 		Rules: []apirbacv1.PolicyRule{rules},
 	}
 	_, err := rbacConf.ClusterRoles().Create(roleObj)
 	if err != nil {
-		return emperror.WrapWith(err, "create clusterrole failed", "ClusterRole", clusterRoleName)
+		return emperror.WrapWith(err, "create clusterrole failed", "ClusterRole", r.name)
 	}
 	return nil
 }
 
-func checkClusterRole() {
+func (r *clusterRole) check() {
 
 }
 
@@ -211,18 +218,46 @@ func CreateRBAC(user *tokenhandler.User) {
 	var saName string
 	if user.FederatedClaimas.ConnectorID == "github" {
 		saName = user.FederatedClaimas.UserID
-	} else {
-		saName = "fakename"
+	} else if user.FederatedClaimas.ConnectorID == "ldap" {
+		r := strings.NewReplacer("@", "-", ".", "-")
+		saName = r.Replace(user.Email)
 	}
-	err := createServiceAccount(saName)
+	sa := &serviceAccount{name: saName}
+	err := sa.create()
 	if err != nil {
 		errorHandler.Handle(err)
 	}
-	err = createClusterRole()
+
+	clusterRole := &clusterRole{
+		name: "test-role-with-rules",
+		verbs: []string{
+			"get",
+			"list",
+		},
+		resources: []string{
+			"deployments",
+			"replicasets",
+			"pods",
+		},
+		apiGroups: []string{
+			"",
+			"extensions",
+			"apps",
+		},
+	}
+	err = clusterRole.create()
 	if err != nil {
 		errorHandler.Handle(err)
 	}
-	err = bindClusterRoleToServiceAccount(saName, "test_role", listNamespaces())
+
+	clusterRoleBinding := &clusterRoleBinding{
+		name:      saName + "-binding",
+		saName:    saName,
+		roleName:  clusterRole.name,
+		nameSpace: listNamespaces(),
+	}
+
+	err = clusterRoleBinding.create()
 	if err != nil {
 		errorHandler.Handle(err)
 	}

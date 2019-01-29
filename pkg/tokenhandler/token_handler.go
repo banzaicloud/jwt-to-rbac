@@ -32,6 +32,7 @@ type federatedClaimas struct {
 	UserID      string `json:"user_id"`
 }
 
+// User impelements createRBAC
 type User struct {
 	Email            string
 	Groups           []string
