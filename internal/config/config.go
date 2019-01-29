@@ -16,15 +16,24 @@ package config
 
 import (
 	"os"
+	"strings"
 
 	"github.com/goph/emperror"
 	"github.com/spf13/viper"
 )
 
 type config struct {
-	ClientID   string
-	IssuerURL  string
-	ServerPort string
+	Dex    dex
+	Server server
+}
+
+type dex struct {
+	ClientID  string
+	IssuerURL string
+}
+
+type server struct {
+	Port string
 }
 
 // Configuration struct
@@ -37,6 +46,8 @@ func InitConfig() error {
 	viper.AddConfigPath("config")
 	viper.SetConfigType("yaml")
 	viper.AddConfigPath(os.Getenv("CONFIG_DIR"))
+	viper.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
+	viper.AutomaticEnv()
 
 	if err := viper.ReadInConfig(); err != nil {
 		return emperror.Wrap(err, "read configuration failed")
@@ -45,5 +56,6 @@ func InitConfig() error {
 	if err != nil {
 		return emperror.Wrap(err, "unmarshal configuration failed")
 	}
+
 	return nil
 }

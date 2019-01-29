@@ -81,14 +81,14 @@ func PostHandler(w http.ResponseWriter, r *http.Request) {
 func main() {
 
 	logger.Info("configuration info", map[string]interface{}{
-		"ClientID":   config.Configuration.ClientID,
-		"IssuerURL":  config.Configuration.IssuerURL,
-		"ServerPort": config.Configuration.ServerPort})
+		"ClientID":   config.Configuration.Dex.ClientID,
+		"IssuerURL":  config.Configuration.Dex.IssuerURL,
+		"ServerPort": config.Configuration.Server.Port})
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("/rbac", GetHandler)
 	mux.HandleFunc("/token", PostHandler)
-	err := http.ListenAndServe(":"+config.Configuration.ServerPort, mux)
+	err := http.ListenAndServe(":"+config.Configuration.Server.Port, mux)
 	if err != nil {
 		errorHandler.Handle(err)
 		os.Exit(1)

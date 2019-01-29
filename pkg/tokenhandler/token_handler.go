@@ -32,7 +32,7 @@ type federatedClaimas struct {
 	UserID      string `json:"user_id"`
 }
 
-// User impelements createRBAC
+// User impelements generateServiceAccount
 type User struct {
 	Email            string
 	Groups           []string
@@ -55,12 +55,12 @@ func init() {
 func initProvider() (*oidc.IDTokenVerifier, error) {
 	// Initialize a provider by specifying dex's issuer URL.
 	ctx := oidc.ClientContext(context.Background(), http.DefaultClient)
-	provider, err := oidc.NewProvider(ctx, config.Configuration.IssuerURL)
+	provider, err := oidc.NewProvider(ctx, config.Configuration.Dex.IssuerURL)
 	if err != nil {
-		return nil, emperror.WrapWith(err, "provider init failed", "issuerURL", config.Configuration.IssuerURL)
+		return nil, emperror.WrapWith(err, "provider init failed", "issuerURL", config.Configuration.Dex.IssuerURL)
 	}
-	// Create an ID token parser, but only trust ID tokens issued to "example-app"
-	idTokenVerifier := provider.Verifier(&oidc.Config{ClientID: config.Configuration.ClientID})
+	// Create an ID token parser, but only trust ID tokens issued to "ClientID"
+	idTokenVerifier := provider.Verifier(&oidc.Config{ClientID: config.Configuration.Dex.ClientID})
 	return idTokenVerifier, nil
 }
 
