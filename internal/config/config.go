@@ -22,25 +22,35 @@ import (
 	"github.com/spf13/viper"
 )
 
-type config struct {
-	Dex    dex
-	Server server
+type Config struct {
+	Dex          Dex
+	Server       Server
+	CustomGroups []CustomGroup
 }
 
-type dex struct {
+type Dex struct {
 	ClientID  string
 	IssuerURL string
 }
 
-type server struct {
+type Server struct {
 	Port string
 }
 
-// Configuration struct
-var Configuration config
+type CustomGroup struct {
+	GroupName   string
+	CustomRules []CustomRule
+}
+
+type CustomRule struct {
+	Verbs     []string
+	Resources []string
+	APIGroups []string
+}
 
 // InitConfig get config
-func InitConfig() error {
+func InitConfig() (*Config, error) {
+	var configuration Config
 
 	viper.SetConfigName("config")
 	viper.AddConfigPath("config")
@@ -50,12 +60,11 @@ func InitConfig() error {
 	viper.AutomaticEnv()
 
 	if err := viper.ReadInConfig(); err != nil {
-		return emperror.Wrap(err, "read configuration failed")
+		return nil, emperror.Wrap(err, "read configuration failed")
 	}
-	err := viper.Unmarshal(&Configuration)
+	err := viper.Unmarshal(&configuration)
 	if err != nil {
-		return emperror.Wrap(err, "unmarshal configuration failed")
+		return &Config{}, emperror.Wrap(err, "unmarshal configuration failed")
 	}
-
-	return nil
+	return &configuration, nil
 }

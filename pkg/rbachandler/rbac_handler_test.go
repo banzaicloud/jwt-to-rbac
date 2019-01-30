@@ -17,23 +17,47 @@ package rbachandler
 import (
 	"testing"
 
+	"github.com/banzaicloud/jwt-to-rbac/internal/config"
 	"github.com/banzaicloud/jwt-to-rbac/pkg/tokenhandler"
 	"github.com/stretchr/testify/assert"
 )
 
+func createFakeConfig(groupName string) *config.Config {
+	customRule := config.CustomRule{
+		Verbs:     []string{"get", "list"},
+		Resources: []string{"deployments", "replicasets", "pods"},
+		APIGroups: []string{"", "extensions", "apps"},
+	}
+	customGroup := config.CustomGroup{
+		GroupName:   groupName,
+		CustomRules: []config.CustomRule{customRule},
+	}
+	config := &config.Config{
+		Dex: config.Dex{
+			ClientID:  "example-app",
+			IssuerURL: "http://localhost/dex",
+		},
+		Server: config.Server{
+			Port: "5555",
+		},
+		CustomGroups: []config.CustomGroup{customGroup},
+	}
+	return config
+}
+
 func TestGenerateRules(t *testing.T) {
 	assert := assert.New(t)
-	rules := generateRules()
+	rules := generateRules("developers", createFakeConfig("developers"))
 	for _, rule := range rules {
-		assert.NotEqual(len(rule.apiGroups), 0)
-		assert.NotEqual(len(rule.resources), 0)
-		assert.NotEqual(len(rule.verbs), 0)
+		assert.Equal(len(rule.apiGroups), 3)
+		assert.Equal(len(rule.resources), 3)
+		assert.Equal(len(rule.verbs), 2)
 	}
 }
 
 func TestGenerateRbacResources(t *testing.T) {
 	assert := assert.New(t)
-	groups := []string{"admin", "developers"}
+	groups := []string{"admins", "developers"}
 	federatedClaims := tokenhandler.FederatedClaims{
 		ConnectorID: "ldap",
 		UserID:      "cn=jane,ou=People,dc=example,dc=org",
@@ -43,8 +67,7 @@ func TestGenerateRbacResources(t *testing.T) {
 		Groups:           groups,
 		FederatedClaimas: federatedClaims,
 	}
-
-	testRbacResources := generateRbacResources(user)
+	testRbacResources := generateRbacResources(user, createFakeConfig("developers"))
 	assert.Equal(len(testRbacResources.clusterRoles), 1)
 	assert.Equal(len(testRbacResources.clusterRoleBindings), 2)
 	assert.Equal(testRbacResources.serviceAccount.name, "janedoe-example-com")
@@ -56,4 +79,12 @@ func TestGenerateRbacResources(t *testing.T) {
 	}
 	assert.ElementsMatch(bindNames, []string{"janedoe-example-com-admin-binding", "janedoe-example-com-developers-from-jwt-binding"})
 	assert.ElementsMatch(roleNames, []string{"admin", "developers-from-jwt"})
+}
+
+func TestGenerateClusterRole(t *testing.T) {
+	assert := assert.New(t)
+	_, err := generateClusterRole("developers", createFakeConfig("fakegroup"))
+	if err != nil {
+		assert.EqualError(err, "cannot find specified group in jwt-to-rbac config-.yaml")
+	}
 }

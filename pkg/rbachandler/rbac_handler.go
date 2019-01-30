@@ -15,9 +15,11 @@
 package rbachandler
 
 import (
+	"errors"
 	"flag"
 	"strings"
 
+	"github.com/banzaicloud/jwt-to-rbac/internal/config"
 	"github.com/banzaicloud/jwt-to-rbac/internal/errorhandler"
 	"github.com/banzaicloud/jwt-to-rbac/internal/log"
 	"github.com/banzaicloud/jwt-to-rbac/pkg/tokenhandler"
@@ -36,7 +38,7 @@ import (
 var logger logur.Logger
 var errorHandler emperror.Handler
 
-type rules struct {
+type rule struct {
 	verbs     []string
 	resources []string
 	apiGroups []string
@@ -45,7 +47,7 @@ type rules struct {
 // clusterRole implements create ClusterRole
 type clusterRole struct {
 	name  string
-	rules []rules
+	rules []rule
 }
 
 // clusterRoleBinding implements create ClusterRoleBinding
@@ -223,36 +225,36 @@ func (r *clusterRole) create() error {
 	return nil
 }
 
-func generateRules() []rules {
-	rule := rules{
-		verbs: []string{
-			"get",
-			"list",
-		},
-		resources: []string{
-			"deployments",
-			"replicasets",
-			"pods",
-		},
-		apiGroups: []string{
-			"",
-			"extensions",
-			"apps",
-		},
+func generateRules(groupName string, config *config.Config) []rule {
+	var cRules []rule
+	for _, cGroup := range config.CustomGroups {
+		if cGroup.GroupName == groupName {
+			for _, cRule := range cGroup.CustomRules {
+				rule := rule{
+					verbs:     cRule.Verbs,
+					resources: cRule.Resources,
+					apiGroups: cRule.APIGroups,
+				}
+				cRules = append(cRules, rule)
+			}
+		}
 	}
-	return []rules{rule}
+	return cRules
 }
 
-func generateClusterRole(group string) clusterRole {
-	rules := generateRules()
+func generateClusterRole(group string, config *config.Config) (clusterRole, error) {
+	rules := generateRules(group, config)
+	if len(rules) < 1 {
+		return clusterRole{}, emperror.With(errors.New("cannot find specified group in jwt-to-rbac config-.yaml"), "groupName", group)
+	}
 	cRole := clusterRole{
 		name:  group + "-from-jwt",
 		rules: rules,
 	}
-	return cRole
+	return cRole, nil
 }
 
-func generateRbacResources(user *tokenhandler.User) *rbacResources {
+func generateRbacResources(user *tokenhandler.User, config *config.Config) *rbacResources {
 	var saName string
 	if user.FederatedClaimas.ConnectorID == "github" {
 		saName = user.FederatedClaimas.UserID
@@ -269,8 +271,14 @@ func generateRbacResources(user *tokenhandler.User) *rbacResources {
 		switch group {
 		case "cluster-admin", "admin", "edit", "view":
 			roleName = group
+		case "admins":
+			roleName = "admin"
 		default:
-			cRole := generateClusterRole(group)
+			cRole, err := generateClusterRole(group, config)
+			if err != nil {
+				logger.Warn(err.Error(), map[string]interface{}{"group": group})
+				continue
+			}
 			clusterRoles = append(clusterRoles, cRole)
 			roleName = group + "-from-jwt"
 		}
@@ -294,8 +302,8 @@ func generateRbacResources(user *tokenhandler.User) *rbacResources {
 }
 
 // CreateRBAC create RBAC resources
-func CreateRBAC(user *tokenhandler.User) {
-	rbacResources := generateRbacResources(user)
+func CreateRBAC(user *tokenhandler.User, config *config.Config) {
+	rbacResources := generateRbacResources(user, config)
 	err := rbacResources.serviceAccount.create()
 	if err != nil {
 		errorHandler.Handle(err)

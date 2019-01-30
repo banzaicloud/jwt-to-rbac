@@ -31,6 +31,7 @@ import (
 
 var logger logur.Logger
 var errorHandler emperror.Handler
+var configuration *config.Config
 
 func init() {
 
@@ -40,8 +41,8 @@ func init() {
 
 	errorHandler = errorhandler.New(logger)
 	defer emperror.HandleRecover(errorHandler)
-
-	err := config.InitConfig()
+	var err error
+	configuration, err = config.InitConfig()
 	if err != nil {
 		errorHandler.Handle(err)
 	}
@@ -65,13 +66,13 @@ func PostHandler(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, "Error reading request body",
 				http.StatusInternalServerError)
 		}
-		user, err := tokenhandler.Authorize(string(body))
+		user, err := tokenhandler.Authorize(string(body), configuration)
 		if err != nil {
 			errorHandler.Handle(err)
 		} else {
 			b, _ := json.Marshal(user)
 			w.Write(b)
-			rbachandler.CreateRBAC(user)
+			rbachandler.CreateRBAC(user, configuration)
 		}
 	} else {
 		http.Error(w, "Invalid request method", http.StatusMethodNotAllowed)
@@ -81,14 +82,14 @@ func PostHandler(w http.ResponseWriter, r *http.Request) {
 func main() {
 
 	logger.Info("configuration info", map[string]interface{}{
-		"ClientID":   config.Configuration.Dex.ClientID,
-		"IssuerURL":  config.Configuration.Dex.IssuerURL,
-		"ServerPort": config.Configuration.Server.Port})
+		"ClientID":   configuration.Dex.ClientID,
+		"IssuerURL":  configuration.Dex.IssuerURL,
+		"ServerPort": configuration.Server.Port})
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("/rbac", GetHandler)
 	mux.HandleFunc("/token", PostHandler)
-	err := http.ListenAndServe(":"+config.Configuration.Server.Port, mux)
+	err := http.ListenAndServe(":"+configuration.Server.Port, mux)
 	if err != nil {
 		errorHandler.Handle(err)
 		os.Exit(1)

@@ -3,3 +3,9 @@ dex:
   issuerURL: "http://localhost/dex"
 server:
   port: "5555"
+customGroups:
+- groupName: developers
+  customRules:
+  - verbs: [ "get", "list" ]
+    resources: [ "deployments", "replicasets", "pods" ]
+    apiGroups: [ "", "extensions", "apps" ]

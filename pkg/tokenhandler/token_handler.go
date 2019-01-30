@@ -53,21 +53,21 @@ func init() {
 	defer emperror.HandleRecover(errorHandler)
 }
 
-func initProvider() (*oidc.IDTokenVerifier, error) {
+func initProvider(config *config.Config) (*oidc.IDTokenVerifier, error) {
 	// Initialize a provider by specifying dex's issuer URL.
 	ctx := oidc.ClientContext(context.Background(), http.DefaultClient)
-	provider, err := oidc.NewProvider(ctx, config.Configuration.Dex.IssuerURL)
+	provider, err := oidc.NewProvider(ctx, config.Dex.IssuerURL)
 	if err != nil {
-		return nil, emperror.WrapWith(err, "provider init failed", "issuerURL", config.Configuration.Dex.IssuerURL)
+		return nil, emperror.WrapWith(err, "provider init failed", "issuerURL", config.Dex.IssuerURL)
 	}
 	// Create an ID token parser, but only trust ID tokens issued to "ClientID"
-	idTokenVerifier := provider.Verifier(&oidc.Config{ClientID: config.Configuration.Dex.ClientID})
+	idTokenVerifier := provider.Verifier(&oidc.Config{ClientID: config.Dex.ClientID})
 	return idTokenVerifier, nil
 }
 
 // Authorize verifies a bearer token and pulls user information form the claims.
-func Authorize(bearerToken string) (*User, error) {
-	idTokenVerifier, err := initProvider()
+func Authorize(bearerToken string, config *config.Config) (*User, error) {
+	idTokenVerifier, err := initProvider(config)
 	if err != nil {
 		errorHandler.Handle(err)
 	}
