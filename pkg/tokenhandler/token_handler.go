@@ -27,7 +27,8 @@ import (
 	"github.com/goph/logur"
 )
 
-type federatedClaimas struct {
+// FederatedClaims dex
+type FederatedClaims struct {
 	ConnectorID string `json:"connector_id"`
 	UserID      string `json:"user_id"`
 }
@@ -36,7 +37,7 @@ type federatedClaimas struct {
 type User struct {
 	Email            string
 	Groups           []string
-	FederatedClaimas federatedClaimas
+	FederatedClaimas FederatedClaims
 }
 
 var logger logur.Logger
@@ -77,10 +78,10 @@ func Authorize(bearerToken string) (*User, error) {
 
 	// Extract custom claims.
 	var claims struct {
-		Email           string           `json:"email"`
-		Verified        bool             `json:"email_verified"`
-		Groups          []string         `json:"groups"`
-		FederatedClaims federatedClaimas `json:"federated_claims"`
+		Email           string          `json:"email"`
+		Verified        bool            `json:"email_verified"`
+		Groups          []string        `json:"groups"`
+		FederatedClaims FederatedClaims `json:"federated_claims"`
 	}
 	if err := idToken.Claims(&claims); err != nil {
 		return nil, emperror.Wrap(err, "failed to parse claims")

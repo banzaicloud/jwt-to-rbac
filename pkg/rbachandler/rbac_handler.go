@@ -223,15 +223,7 @@ func (r *clusterRole) create() error {
 	return nil
 }
 
-func generateRbacResources(user *tokenhandler.User) *rbacResources {
-	var saName string
-	if user.FederatedClaimas.ConnectorID == "github" {
-		saName = user.FederatedClaimas.UserID
-	} else if user.FederatedClaimas.ConnectorID == "ldap" {
-		r := strings.NewReplacer("@", "-", ".", "-")
-		saName = r.Replace(user.Email)
-	}
-
+func generateRules() []rules {
 	rule := rules{
 		verbs: []string{
 			"get",
@@ -248,19 +240,44 @@ func generateRbacResources(user *tokenhandler.User) *rbacResources {
 			"apps",
 		},
 	}
+	return []rules{rule}
+}
+
+func generateClusterRole(group string) clusterRole {
+	rules := generateRules()
+	cRole := clusterRole{
+		name:  group + "-from-jwt",
+		rules: rules,
+	}
+	return cRole
+}
+
+func generateRbacResources(user *tokenhandler.User) *rbacResources {
+	var saName string
+	if user.FederatedClaimas.ConnectorID == "github" {
+		saName = user.FederatedClaimas.UserID
+	} else if user.FederatedClaimas.ConnectorID == "ldap" {
+		r := strings.NewReplacer("@", "-", ".", "-")
+		saName = r.Replace(user.Email)
+	}
 
 	var clusterRoles []clusterRole
 	var clusterRoleBindings []clusterRoleBinding
+
 	for _, group := range user.Groups {
-		cRole := clusterRole{
-			name:  group + "-from-jwt",
-			rules: []rules{rule},
+		var roleName string
+		switch group {
+		case "cluster-admin", "admin", "edit", "view":
+			roleName = group
+		default:
+			cRole := generateClusterRole(group)
+			clusterRoles = append(clusterRoles, cRole)
+			roleName = group + "-from-jwt"
 		}
-		clusterRoles = append(clusterRoles, cRole)
 		cRoleBinding := clusterRoleBinding{
-			name:      saName + "-" + group + "-binding",
+			name:      saName + "-" + roleName + "-binding",
 			saName:    saName,
-			roleName:  group + "-from-jwt",
+			roleName:  roleName,
 			nameSpace: listNamespaces(),
 		}
 		clusterRoleBindings = append(clusterRoleBindings, cRoleBinding)
@@ -283,11 +300,12 @@ func CreateRBAC(user *tokenhandler.User) {
 	if err != nil {
 		errorHandler.Handle(err)
 	}
-
-	for _, clusterRole := range rbacResources.clusterRoles {
-		err = clusterRole.create()
-		if err != nil {
-			errorHandler.Handle(err)
+	if len(rbacResources.clusterRoles) > 0 {
+		for _, clusterRole := range rbacResources.clusterRoles {
+			err = clusterRole.create()
+			if err != nil {
+				errorHandler.Handle(err)
+			}
 		}
 	}
 	for _, clusterRoleBinding := range rbacResources.clusterRoleBindings {
