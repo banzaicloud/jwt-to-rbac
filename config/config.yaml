@@ -1,6 +1,6 @@
 dex:
   clientID: "example-app"
-  issuerURL: "http://localhost/dex"
+  issuerURL: "http://dex/dex"
 server:
   port: "5555"
 customGroups:

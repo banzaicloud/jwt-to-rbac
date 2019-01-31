@@ -69,10 +69,12 @@ func TestGenerateRbacResources(t *testing.T) {
 		FederatedClaimas: federatedClaims,
 	}
 	testRbacResources := generateRbacResources(user, createFakeConfig("developers"))
-	assert.Equal(len(testRbacResources.clusterRoles), 1)
+	roleSuccess := assert.Equal(len(testRbacResources.clusterRoles), 1)
 	assert.Equal(len(testRbacResources.clusterRoleBindings), 2)
 	assert.Equal(testRbacResources.serviceAccount.name, "janedoe-example-com")
-	assert.Equal(testRbacResources.clusterRoles[0].name, "developers-from-jwt")
+	if roleSuccess {
+		assert.Equal(testRbacResources.clusterRoles[0].name, "developers-from-jwt")
+	}
 	var bindNames, roleNames []string
 	for _, crBind := range testRbacResources.clusterRoleBindings {
 		bindNames = append(bindNames, crBind.name)
