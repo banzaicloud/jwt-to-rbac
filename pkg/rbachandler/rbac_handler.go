@@ -237,6 +237,7 @@ func generateRules(groupName string, config *config.Config) []rule {
 				}
 				cRules = append(cRules, rule)
 			}
+			break
 		}
 	}
 	return cRules
@@ -276,7 +277,7 @@ func generateRbacResources(user *tokenhandler.User, config *config.Config) *rbac
 		default:
 			cRole, err := generateClusterRole(group, config)
 			if err != nil {
-				logger.Warn(err.Error(), map[string]interface{}{"group": group})
+				logger.Error(err.Error(), map[string]interface{}{"group": group})
 				continue
 			}
 			clusterRoles = append(clusterRoles, cRole)

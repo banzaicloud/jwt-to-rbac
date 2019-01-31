@@ -48,11 +48,12 @@ func createFakeConfig(groupName string) *config.Config {
 func TestGenerateRules(t *testing.T) {
 	assert := assert.New(t)
 	rules := generateRules("developers", createFakeConfig("developers"))
-	for _, rule := range rules {
-		assert.Equal(len(rule.apiGroups), 3)
-		assert.Equal(len(rule.resources), 3)
-		assert.Equal(len(rule.verbs), 2)
-	}
+	assert.ElementsMatch(rules[0].apiGroups, []string{"", "extensions", "apps"})
+	assert.ElementsMatch(rules[0].resources, []string{"deployments", "replicasets", "pods"})
+	assert.ElementsMatch(rules[0].verbs, []string{"get", "list"})
+
+	rules = generateRules("developers", createFakeConfig("fakegroup"))
+	assert.Equal(len(rules), 0)
 }
 
 func TestGenerateRbacResources(t *testing.T) {
@@ -79,6 +80,20 @@ func TestGenerateRbacResources(t *testing.T) {
 	}
 	assert.ElementsMatch(bindNames, []string{"janedoe-example-com-admin-binding", "janedoe-example-com-developers-from-jwt-binding"})
 	assert.ElementsMatch(roleNames, []string{"admin", "developers-from-jwt"})
+
+	testRbacResources = generateRbacResources(user, createFakeConfig("fakegroup"))
+	assert.Equal(len(testRbacResources.clusterRoles), 0)
+	assert.Equal(len(testRbacResources.clusterRoleBindings), 1)
+	assert.Equal(testRbacResources.serviceAccount.name, "janedoe-example-com")
+	bindNames = nil
+	roleNames = nil
+	for _, crBind := range testRbacResources.clusterRoleBindings {
+		bindNames = append(bindNames, crBind.name)
+		roleNames = append(roleNames, crBind.roleName)
+	}
+	assert.ElementsMatch(bindNames, []string{"janedoe-example-com-admin-binding"})
+	assert.ElementsMatch(roleNames, []string{"admin"})
+
 }
 
 func TestGenerateClusterRole(t *testing.T) {
