@@ -100,8 +100,10 @@ func TestGenerateRbacResources(t *testing.T) {
 
 func TestGenerateClusterRole(t *testing.T) {
 	assert := assert.New(t)
+	cRole, _ := generateClusterRole("developers", createFakeConfig("developers"))
+	assert.Equal(cRole.name, "developers-from-jwt")
 	_, err := generateClusterRole("developers", createFakeConfig("fakegroup"))
 	if err != nil {
-		assert.EqualError(err, "cannot find specified group in jwt-to-rbac config-.yaml")
+		assert.EqualError(err, "cannot find specified group in jwt-to-rbac config")
 	}
 }

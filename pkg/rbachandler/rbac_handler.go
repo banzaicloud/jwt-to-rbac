@@ -69,13 +69,13 @@ type rbacResources struct {
 	serviceAccount      serviceAccount
 }
 
-var coreConf *clientcorev1.CoreV1Client
-var rbacConf *clientrbacv1.RbacV1Client
+var coreClientSet *clientcorev1.CoreV1Client
+var rbacClientSet *clientrbacv1.RbacV1Client
 
 func init() {
 	var kubeconfig string
-	// flag.StringVar(&kubeconfig, "", "", "path to Kubernetes config file")
-	flag.StringVar(&kubeconfig, "kubeconfig", "/Users/poke/.kube/config", "path to Kubernetes config file")
+	flag.StringVar(&kubeconfig, "", "", "path to Kubernetes config file")
+	// flag.StringVar(&kubeconfig, "kubeconfig", "/Users/poke/.kube/config", "path to Kubernetes config file")
 	flag.Parse()
 
 	logConfig := log.Config{Format: "json", Level: "4", NoColor: true}
@@ -89,11 +89,11 @@ func init() {
 	if err != nil {
 		errorHandler.Handle(err)
 	}
-	coreConf, err = clientcorev1.NewForConfig(clusterConfig)
+	coreClientSet, err = clientcorev1.NewForConfig(clusterConfig)
 	if err != nil {
 		errorHandler.Handle(err)
 	}
-	rbacConf, err = clientrbacv1.NewForConfig(clusterConfig)
+	rbacClientSet, err = clientrbacv1.NewForConfig(clusterConfig)
 	if err != nil {
 		errorHandler.Handle(err)
 	}
@@ -118,7 +118,7 @@ func getK8sConfig(kubeconfig string) (*rest.Config, error) {
 
 // ListClusterroleBindings clusterrolebindings
 func ListClusterroleBindings() []string {
-	bindings := rbacConf.ClusterRoleBindings()
+	bindings := rbacClientSet.ClusterRoleBindings()
 	binds, _ := bindings.List(metav1.ListOptions{})
 	var rbacList []string
 	for _, b := range binds.Items {
@@ -130,7 +130,7 @@ func ListClusterroleBindings() []string {
 
 // ListServiceAccount list serviceaccount
 func ListServiceAccount() []string {
-	serviceAccountList, _ := coreConf.ServiceAccounts("").List(metav1.ListOptions{})
+	serviceAccountList, _ := coreClientSet.ServiceAccounts("").List(metav1.ListOptions{})
 	var serviceAccList []string
 	for _, serviceAcc := range serviceAccountList.Items {
 		serviceAccList = append(serviceAccList, serviceAcc.GetName())
@@ -139,7 +139,7 @@ func ListServiceAccount() []string {
 }
 
 func listNamespaces() []string {
-	namespaceList, _ := coreConf.Namespaces().List(metav1.ListOptions{})
+	namespaceList, _ := coreClientSet.Namespaces().List(metav1.ListOptions{})
 	var nsList []string
 	for _, namespace := range namespaceList.Items {
 		nsList = append(nsList, namespace.GetName())
@@ -158,7 +158,7 @@ func (sa *serviceAccount) create() error {
 			Namespace: "default",
 		},
 	}
-	_, err := coreConf.ServiceAccounts("default").Create(saObj)
+	_, err := coreClientSet.ServiceAccounts("default").Create(saObj)
 	if err != nil {
 		return emperror.WrapWith(err, "create serviceaccount failed", "saName", sa)
 	}
@@ -191,7 +191,7 @@ func (rb *clusterRoleBinding) create() error {
 			Name:     rb.roleName,
 		},
 	}
-	_, err := rbacConf.ClusterRoleBindings().Create(bindObj)
+	_, err := rbacClientSet.ClusterRoleBindings().Create(bindObj)
 	if err != nil {
 		return emperror.WrapWith(err, "create clusterrolebinding failed", "ClusterRoleBinding", rb.name)
 	}
@@ -218,7 +218,7 @@ func (r *clusterRole) create() error {
 		},
 		Rules: rules,
 	}
-	_, err := rbacConf.ClusterRoles().Create(roleObj)
+	_, err := rbacClientSet.ClusterRoles().Create(roleObj)
 	if err != nil {
 		return emperror.WrapWith(err, "create clusterrole failed", "ClusterRole", r.name)
 	}
@@ -246,7 +246,7 @@ func generateRules(groupName string, config *config.Config) []rule {
 func generateClusterRole(group string, config *config.Config) (clusterRole, error) {
 	rules := generateRules(group, config)
 	if len(rules) < 1 {
-		return clusterRole{}, emperror.With(errors.New("cannot find specified group in jwt-to-rbac config-.yaml"), "groupName", group)
+		return clusterRole{}, emperror.With(errors.New("cannot find specified group in jwt-to-rbac config"), "groupName", group)
 	}
 	cRole := clusterRole{
 		name:  group + "-from-jwt",
@@ -259,7 +259,7 @@ func generateRbacResources(user *tokenhandler.User, config *config.Config) *rbac
 	var saName string
 	if user.FederatedClaimas.ConnectorID == "github" {
 		saName = user.FederatedClaimas.UserID
-	} else if user.FederatedClaimas.ConnectorID == "ldap" {
+	} else if user.FederatedClaimas.ConnectorID == "ldap" || user.FederatedClaimas.ConnectorID == "local" {
 		r := strings.NewReplacer("@", "-", ".", "-")
 		saName = r.Replace(user.Email)
 	}
