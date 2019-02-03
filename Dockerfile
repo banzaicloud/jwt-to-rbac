@@ -17,6 +17,9 @@ RUN apk add --update libcap && rm -rf /var/cache/apk/*
 COPY --from=builder /tmp/jwt-to-rbac /usr/local/bin/jwt-to-rbac
 COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
 
+COPY config/config.yaml /etc/jwt-to-rbac/config.yaml
+ENV CONFIG_DIR=/etc/jwt-to-rbac
+
 RUN adduser -D jwt-to-rbac
 RUN setcap CAP_NET_BIND_SERVICE=+eip /usr/local/bin/jwt-to-rbac
 USER jwt-to-rbac

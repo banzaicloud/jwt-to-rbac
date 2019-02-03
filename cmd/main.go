@@ -60,15 +60,23 @@ func GetHandler(w http.ResponseWriter, r *http.Request) {
 
 // PostHandler converts post request body to string
 func PostHandler(w http.ResponseWriter, r *http.Request) {
+	type jwtToken struct {
+		Token string `json:"token"`
+	}
+
 	if r.Method == "POST" {
 		body, err := ioutil.ReadAll(r.Body)
+
 		if err != nil {
 			http.Error(w, "Error reading request body",
 				http.StatusInternalServerError)
 		}
-		user, err := tokenhandler.Authorize(string(body), configuration)
+		res := jwtToken{}
+		json.Unmarshal(body, &res)
+		user, err := tokenhandler.Authorize(res.Token, configuration)
 		if err != nil {
 			errorHandler.Handle(err)
+			http.Error(w, err.Error(), http.StatusInternalServerError)
 		} else {
 			b, _ := json.Marshal(user)
 			w.Write(b)

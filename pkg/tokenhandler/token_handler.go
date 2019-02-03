@@ -69,7 +69,7 @@ func initProvider(config *config.Config) (*oidc.IDTokenVerifier, error) {
 func Authorize(bearerToken string, config *config.Config) (*User, error) {
 	idTokenVerifier, err := initProvider(config)
 	if err != nil {
-		errorHandler.Handle(err)
+		return nil, err
 	}
 	idToken, err := idTokenVerifier.Verify(oidc.ClientContext(context.Background(), http.DefaultClient), bearerToken)
 	if err != nil {
