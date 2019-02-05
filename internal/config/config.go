@@ -26,6 +26,7 @@ type Config struct {
 	Dex          Dex
 	Server       Server
 	CustomGroups []CustomGroup
+	KubeConfig   string
 }
 
 type Dex struct {

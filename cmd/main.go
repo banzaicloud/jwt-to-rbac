@@ -15,91 +15,34 @@
 package main
 
 import (
-	"encoding/json"
-	"io/ioutil"
 	"net/http"
-	"os"
 
+	"github.com/banzaicloud/jwt-to-rbac/internal/app"
 	"github.com/banzaicloud/jwt-to-rbac/internal/config"
-	"github.com/banzaicloud/jwt-to-rbac/internal/errorhandler"
 	"github.com/banzaicloud/jwt-to-rbac/internal/log"
-	"github.com/banzaicloud/jwt-to-rbac/pkg/rbachandler"
-	"github.com/banzaicloud/jwt-to-rbac/pkg/tokenhandler"
-	"github.com/goph/emperror"
-	"github.com/goph/logur"
 )
 
-var logger logur.Logger
-var errorHandler emperror.Handler
-var configuration *config.Config
-
-func init() {
-
+func main() {
 	logConfig := log.Config{Format: "json", Level: "4", NoColor: true}
-	logger = log.NewLogger(logConfig)
+	logger := log.NewLogger(logConfig)
 	logger = log.WithFields(logger, map[string]interface{}{"package": "main"})
 
-	errorHandler = errorhandler.New(logger)
-	defer emperror.HandleRecover(errorHandler)
 	var err error
-	configuration, err = config.InitConfig()
+	configuration, err := config.InitConfig()
 	if err != nil {
-		errorHandler.Handle(err)
+		logger.Warn(err.Error(), nil)
 	}
-}
-
-// GetHandler handles the index route
-func GetHandler(w http.ResponseWriter, r *http.Request) {
-	jsonBody, err := json.Marshal(rbachandler.ListClusterroleBindings())
-	if err != nil {
-		http.Error(w, "Error converting results to json",
-			http.StatusInternalServerError)
-	}
-	w.Write(jsonBody)
-}
-
-// PostHandler converts post request body to string
-func PostHandler(w http.ResponseWriter, r *http.Request) {
-	type jwtToken struct {
-		Token string `json:"token"`
-	}
-
-	if r.Method == "POST" {
-		body, err := ioutil.ReadAll(r.Body)
-
-		if err != nil {
-			http.Error(w, "Error reading request body",
-				http.StatusInternalServerError)
-		}
-		res := jwtToken{}
-		json.Unmarshal(body, &res)
-		user, err := tokenhandler.Authorize(res.Token, configuration)
-		if err != nil {
-			errorHandler.Handle(err)
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-		} else {
-			b, _ := json.Marshal(user)
-			w.Write(b)
-			rbachandler.CreateRBAC(user, configuration)
-		}
-	} else {
-		http.Error(w, "Invalid request method", http.StatusMethodNotAllowed)
-	}
-}
-
-func main() {
 
 	logger.Info("configuration info", map[string]interface{}{
 		"ClientID":   configuration.Dex.ClientID,
 		"IssuerURL":  configuration.Dex.IssuerURL,
-		"ServerPort": configuration.Server.Port})
+		"ServerPort": configuration.Server.Port,
+		"KubeConfig": configuration.KubeConfig})
 
-	mux := http.NewServeMux()
-	mux.HandleFunc("/rbac", GetHandler)
-	mux.HandleFunc("/token", PostHandler)
-	err := http.ListenAndServe(":"+configuration.Server.Port, mux)
-	if err != nil {
-		errorHandler.Handle(err)
-		os.Exit(1)
+	app := &app.App{
+		Mux:    &http.ServeMux{},
+		Config: configuration,
 	}
+	app.InitApp()
+	app.Run(logger)
 }

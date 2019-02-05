@@ -15,6 +15,8 @@
 package rbachandler
 
 import (
+	"os"
+	"path"
 	"testing"
 
 	"github.com/banzaicloud/jwt-to-rbac/internal/config"
@@ -23,6 +25,7 @@ import (
 )
 
 func createFakeConfig(groupName string) *config.Config {
+	kubeconfig := path.Join(os.Getenv("HOME"), ".kube/config")
 	customRule := config.CustomRule{
 		Verbs:     []string{"get", "list"},
 		Resources: []string{"deployments", "replicasets", "pods"},
@@ -41,6 +44,7 @@ func createFakeConfig(groupName string) *config.Config {
 			Port: "5555",
 		},
 		CustomGroups: []config.CustomGroup{customGroup},
+		KubeConfig:   kubeconfig,
 	}
 	return config
 }
@@ -68,7 +72,7 @@ func TestGenerateRbacResources(t *testing.T) {
 		Groups:           groups,
 		FederatedClaimas: federatedClaims,
 	}
-	testRbacResources := generateRbacResources(user, createFakeConfig("developers"))
+	testRbacResources, _ := generateRbacResources(user, createFakeConfig("developers"), []string{"default"})
 	roleSuccess := assert.Equal(len(testRbacResources.clusterRoles), 1)
 	assert.Equal(len(testRbacResources.clusterRoleBindings), 2)
 	assert.Equal(testRbacResources.serviceAccount.name, "janedoe-example-com")
@@ -83,7 +87,7 @@ func TestGenerateRbacResources(t *testing.T) {
 	assert.ElementsMatch(bindNames, []string{"janedoe-example-com-admin-binding", "janedoe-example-com-developers-from-jwt-binding"})
 	assert.ElementsMatch(roleNames, []string{"admin", "developers-from-jwt"})
 
-	testRbacResources = generateRbacResources(user, createFakeConfig("fakegroup"))
+	testRbacResources, _ = generateRbacResources(user, createFakeConfig("fakegroup"), []string{"default"})
 	assert.Equal(len(testRbacResources.clusterRoles), 0)
 	assert.Equal(len(testRbacResources.clusterRoleBindings), 1)
 	assert.Equal(testRbacResources.serviceAccount.name, "janedoe-example-com")
@@ -106,4 +110,10 @@ func TestGenerateClusterRole(t *testing.T) {
 	if err != nil {
 		assert.EqualError(err, "cannot find specified group in jwt-to-rbac config")
 	}
+}
+
+func TestListClusterroleBindings(t *testing.T) {
+	assert := assert.New(t)
+	_, err := ListClusterroleBindings(createFakeConfig("developers"))
+	assert.NoError(err)
 }

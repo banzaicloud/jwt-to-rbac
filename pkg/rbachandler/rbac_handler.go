@@ -16,11 +16,10 @@ package rbachandler
 
 import (
 	"errors"
-	"flag"
+	"fmt"
 	"strings"
 
 	"github.com/banzaicloud/jwt-to-rbac/internal/config"
-	"github.com/banzaicloud/jwt-to-rbac/internal/errorhandler"
 	"github.com/banzaicloud/jwt-to-rbac/internal/log"
 	"github.com/banzaicloud/jwt-to-rbac/pkg/tokenhandler"
 
@@ -36,7 +35,12 @@ import (
 )
 
 var logger logur.Logger
-var errorHandler emperror.Handler
+
+const defautlLabelKey string = "generatedby"
+
+var defaultLabel = labels{
+	defautlLabelKey: "jwttorbac",
+}
 
 type rule struct {
 	verbs     []string
@@ -44,10 +48,13 @@ type rule struct {
 	apiGroups []string
 }
 
+type labels map[string]string
+
 // clusterRole implements create ClusterRole
 type clusterRole struct {
-	name  string
-	rules []rule
+	name   string
+	rules  []rule
+	labels labels
 }
 
 // clusterRoleBinding implements create ClusterRoleBinding
@@ -56,11 +63,14 @@ type clusterRoleBinding struct {
 	saName    string
 	roleName  string
 	nameSpace []string
+	labels    labels
 }
 
 // serviceAccount implements create ServiceAccount
 type serviceAccount struct {
-	name string
+	name      string
+	labels    labels
+	namespace string
 }
 
 type rbacResources struct {
@@ -69,85 +79,113 @@ type rbacResources struct {
 	serviceAccount      serviceAccount
 }
 
-var coreClientSet *clientcorev1.CoreV1Client
-var rbacClientSet *clientrbacv1.RbacV1Client
+// RBACHandler struct
+type RBACHandler struct {
+	coreClientSet *clientcorev1.CoreV1Client
+	rbacClientSet *clientrbacv1.RbacV1Client
+}
 
 func init() {
-	var kubeconfig string
-	flag.StringVar(&kubeconfig, "", "", "path to Kubernetes config file")
-	// flag.StringVar(&kubeconfig, "kubeconfig", "/Users/poke/.kube/config", "path to Kubernetes config file")
-	flag.Parse()
-
 	logConfig := log.Config{Format: "json", Level: "4", NoColor: true}
 	logger = log.NewLogger(logConfig)
 	logger = log.WithFields(logger, map[string]interface{}{"package": "rbachandler"})
-
-	errorHandler = errorhandler.New(logger)
-	defer emperror.HandleRecover(errorHandler)
-
-	clusterConfig, err := getK8sConfig(kubeconfig)
-	if err != nil {
-		errorHandler.Handle(err)
-	}
-	coreClientSet, err = clientcorev1.NewForConfig(clusterConfig)
-	if err != nil {
-		errorHandler.Handle(err)
-	}
-	rbacClientSet, err = clientrbacv1.NewForConfig(clusterConfig)
-	if err != nil {
-		errorHandler.Handle(err)
-	}
 }
 
-func getK8sConfig(kubeconfig string) (*rest.Config, error) {
+// NewRBACHandler create RBACHandler
+func NewRBACHandler(kubeconfig string) (*RBACHandler, error) {
+	coreClientSet, rbacClientSet, err := getK8sClientSets(kubeconfig)
+	if err != nil {
+		return nil, err
+	}
+	return &RBACHandler{coreClientSet, rbacClientSet}, nil
+}
+
+func getK8sClientSets(kubeconfig string) (*clientcorev1.CoreV1Client, *clientrbacv1.RbacV1Client, error) {
+	logger.Info("Kubeconfig get info", map[string]interface{}{"KubeConfig": kubeconfig})
+	var config *rest.Config
+	var err error
 	if kubeconfig == "" {
 		logger.Debug("using in-cluster configuration", nil)
-		config, err := rest.InClusterConfig()
+		config, err = rest.InClusterConfig()
 		if err != nil {
-			return nil, emperror.Wrap(err, "failed to get incluster config")
+			return nil, nil, emperror.Wrap(err, "failed to get incluster config")
 		}
-		return config, nil
+	} else {
+		logger.Debug("using configuration from", map[string]interface{}{"kubeconfig": kubeconfig})
+		config, err = clientcmd.BuildConfigFromFlags("", kubeconfig)
+		if err != nil {
+			return nil, nil, emperror.WrapWith(err, "failed to get kubernetes config", "kubeconfig", kubeconfig)
+		}
 	}
-	logger.Debug("using configuration from", map[string]interface{}{"kubeconfig": kubeconfig})
-	config, err := clientcmd.BuildConfigFromFlags("", kubeconfig)
+
+	coreClientSet, err := clientcorev1.NewForConfig(config)
 	if err != nil {
-		return nil, emperror.Wrap(err, "failed to get kubernetes config")
+		return nil, nil, emperror.Wrap(err, "cannot create new core clientSet")
 	}
-	return config, nil
+	rbacClientSet, err := clientrbacv1.NewForConfig(config)
+	if err != nil {
+		return nil, nil, emperror.Wrap(err, "cannot create new rbac clientSet")
+	}
+	return coreClientSet, rbacClientSet, nil
 }
 
 // ListClusterroleBindings clusterrolebindings
-func ListClusterroleBindings() []string {
-	bindings := rbacClientSet.ClusterRoleBindings()
-	binds, _ := bindings.List(metav1.ListOptions{})
+func ListClusterroleBindings(config *config.Config) ([]string, error) {
+	rbacHandler, err := NewRBACHandler(config.KubeConfig)
+	if err != nil {
+		return nil, err
+	}
+	rbacList, err := rbacHandler.listClusterroleBindings()
+	if err != nil {
+		return nil, err
+	}
+	return rbacList, nil
+}
+
+func (rh *RBACHandler) listClusterroleBindings() ([]string, error) {
+	bindings := rh.rbacClientSet.ClusterRoleBindings()
+	binds, err := bindings.List(metav1.ListOptions{})
+	if err != nil {
+		return nil, emperror.WrapWith(err, "unable to list bindings", "ListOptions", metav1.ListOptions{})
+	}
 	var rbacList []string
 	for _, b := range binds.Items {
 		rbacList = append(rbacList, b.GetName())
 	}
-	ListServiceAccount()
-	return rbacList
+	rh.listServiceAccount()
+	return rbacList, nil
 }
 
 // ListServiceAccount list serviceaccount
-func ListServiceAccount() []string {
-	serviceAccountList, _ := coreClientSet.ServiceAccounts("").List(metav1.ListOptions{})
+func (rh *RBACHandler) listServiceAccount() ([]string, error) {
+	labelSelect := fmt.Sprintf("%s=%s", defautlLabelKey, defaultLabel[defautlLabelKey])
+	listOptions := metav1.ListOptions{
+		LabelSelector: labelSelect,
+	}
+	serviceAccountList, err := rh.coreClientSet.ServiceAccounts("").List(listOptions)
+	if err != nil {
+		return nil, emperror.WrapWith(err, "cannot list ServiceAccounts", "label_selector", defaultLabel)
+	}
 	var serviceAccList []string
 	for _, serviceAcc := range serviceAccountList.Items {
 		serviceAccList = append(serviceAccList, serviceAcc.GetName())
 	}
-	return serviceAccList
+	return serviceAccList, nil
 }
 
-func listNamespaces() []string {
-	namespaceList, _ := coreClientSet.Namespaces().List(metav1.ListOptions{})
+func (rh *RBACHandler) listNamespaces() ([]string, error) {
+	namespaceList, err := rh.coreClientSet.Namespaces().List(metav1.ListOptions{})
+	if err != nil {
+		return nil, emperror.Wrap(err, "listing namespaces failed")
+	}
 	var nsList []string
 	for _, namespace := range namespaceList.Items {
 		nsList = append(nsList, namespace.GetName())
 	}
-	return nsList
+	return nsList, nil
 }
 
-func (sa *serviceAccount) create() error {
+func (rh *RBACHandler) createServiceAccount(sa *serviceAccount) error {
 	saObj := &apicorev1.ServiceAccount{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "ServiceAccount",
@@ -155,23 +193,24 @@ func (sa *serviceAccount) create() error {
 		},
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      sa.name,
-			Namespace: "default",
+			Namespace: sa.namespace,
+			Labels:    sa.labels,
 		},
 	}
-	_, err := coreClientSet.ServiceAccounts("default").Create(saObj)
+	_, err := rh.coreClientSet.ServiceAccounts("default").Create(saObj)
 	if err != nil {
 		return emperror.WrapWith(err, "create serviceaccount failed", "saName", sa)
 	}
 	return nil
 }
 
-func (rb *clusterRoleBinding) create() error {
+func (rh *RBACHandler) createClusterRoleBinding(crb *clusterRoleBinding) error {
 	var subjects []apirbacv1.Subject
-	for _, ns := range rb.nameSpace {
+	for _, ns := range crb.nameSpace {
 		subject := apirbacv1.Subject{
 			Kind:      "ServiceAccount",
 			APIGroup:  "",
-			Name:      rb.saName,
+			Name:      crb.saName,
 			Namespace: ns,
 		}
 		subjects = append(subjects, subject)
@@ -182,25 +221,26 @@ func (rb *clusterRoleBinding) create() error {
 			APIVersion: "v1",
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name: rb.name,
+			Name:   crb.name,
+			Labels: crb.labels,
 		},
 		Subjects: subjects,
 		RoleRef: apirbacv1.RoleRef{
 			Kind:     "ClusterRole",
 			APIGroup: "rbac.authorization.k8s.io",
-			Name:     rb.roleName,
+			Name:     crb.roleName,
 		},
 	}
-	_, err := rbacClientSet.ClusterRoleBindings().Create(bindObj)
+	_, err := rh.rbacClientSet.ClusterRoleBindings().Create(bindObj)
 	if err != nil {
-		return emperror.WrapWith(err, "create clusterrolebinding failed", "ClusterRoleBinding", rb.name)
+		return emperror.WrapWith(err, "create clusterrolebinding failed", "ClusterRoleBinding", crb.name)
 	}
 	return nil
 }
 
-func (r *clusterRole) create() error {
+func (rh *RBACHandler) createCluterRole(cr *clusterRole) error {
 	var rules []apirbacv1.PolicyRule
-	for _, rule := range r.rules {
+	for _, rule := range cr.rules {
 		rule := apirbacv1.PolicyRule{
 			Verbs:     rule.verbs,
 			Resources: rule.resources,
@@ -214,13 +254,14 @@ func (r *clusterRole) create() error {
 			APIVersion: "v1",
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name: r.name,
+			Name:   cr.name,
+			Labels: cr.labels,
 		},
 		Rules: rules,
 	}
-	_, err := rbacClientSet.ClusterRoles().Create(roleObj)
+	_, err := rh.rbacClientSet.ClusterRoles().Create(roleObj)
 	if err != nil {
-		return emperror.WrapWith(err, "create clusterrole failed", "ClusterRole", r.name)
+		return emperror.WrapWith(err, "create clusterrole failed", "ClusterRole", cr.name)
 	}
 	return nil
 }
@@ -249,13 +290,14 @@ func generateClusterRole(group string, config *config.Config) (clusterRole, erro
 		return clusterRole{}, emperror.With(errors.New("cannot find specified group in jwt-to-rbac config"), "groupName", group)
 	}
 	cRole := clusterRole{
-		name:  group + "-from-jwt",
-		rules: rules,
+		name:   group + "-from-jwt",
+		rules:  rules,
+		labels: defaultLabel,
 	}
 	return cRole, nil
 }
 
-func generateRbacResources(user *tokenhandler.User, config *config.Config) *rbacResources {
+func generateRbacResources(user *tokenhandler.User, config *config.Config, nameSpaces []string) (*rbacResources, error) {
 	var saName string
 	if user.FederatedClaimas.ConnectorID == "github" {
 		saName = user.FederatedClaimas.UserID
@@ -266,7 +308,6 @@ func generateRbacResources(user *tokenhandler.User, config *config.Config) *rbac
 
 	var clusterRoles []clusterRole
 	var clusterRoleBindings []clusterRoleBinding
-
 	for _, group := range user.Groups {
 		var roleName string
 		switch group {
@@ -277,7 +318,7 @@ func generateRbacResources(user *tokenhandler.User, config *config.Config) *rbac
 		default:
 			cRole, err := generateClusterRole(group, config)
 			if err != nil {
-				logger.Error(err.Error(), map[string]interface{}{"group": group})
+				logger.Info(err.Error(), map[string]interface{}{"group": group})
 				continue
 			}
 			clusterRoles = append(clusterRoles, cRole)
@@ -287,7 +328,8 @@ func generateRbacResources(user *tokenhandler.User, config *config.Config) *rbac
 			name:      saName + "-" + roleName + "-binding",
 			saName:    saName,
 			roleName:  roleName,
-			nameSpace: listNamespaces(),
+			nameSpace: nameSpaces,
+			labels:    defaultLabel,
 		}
 		clusterRoleBindings = append(clusterRoleBindings, cRoleBinding)
 	}
@@ -296,31 +338,48 @@ func generateRbacResources(user *tokenhandler.User, config *config.Config) *rbac
 		clusterRoles:        clusterRoles,
 		clusterRoleBindings: clusterRoleBindings,
 		serviceAccount: serviceAccount{
-			name: saName,
+			name:   saName,
+			labels: defaultLabel,
 		},
 	}
-	return rbacResources
+	return rbacResources, nil
 }
 
 // CreateRBAC create RBAC resources
-func CreateRBAC(user *tokenhandler.User, config *config.Config) {
-	rbacResources := generateRbacResources(user, config)
-	err := rbacResources.serviceAccount.create()
+func CreateRBAC(user *tokenhandler.User, config *config.Config) error {
+	rbacHandler, err := NewRBACHandler(config.KubeConfig)
 	if err != nil {
-		errorHandler.Handle(err)
+
+	}
+	nameSpaces, err := rbacHandler.listNamespaces()
+	if err != nil {
+		return err
+	}
+	rbacResources, err := generateRbacResources(user, config, nameSpaces)
+	if err != nil {
+		logger.Error(err.Error(), nil)
+		return err
+	}
+	err = rbacHandler.createServiceAccount(&rbacResources.serviceAccount)
+	if err != nil {
+		logger.Error(err.Error(), nil)
+		return err
 	}
 	if len(rbacResources.clusterRoles) > 0 {
 		for _, clusterRole := range rbacResources.clusterRoles {
-			err = clusterRole.create()
+			err = rbacHandler.createCluterRole(&clusterRole)
 			if err != nil {
-				errorHandler.Handle(err)
+				logger.Error(err.Error(), nil)
+				return err
 			}
 		}
 	}
 	for _, clusterRoleBinding := range rbacResources.clusterRoleBindings {
-		err := clusterRoleBinding.create()
+		err = rbacHandler.createClusterRoleBinding(&clusterRoleBinding)
 		if err != nil {
-			errorHandler.Handle(err)
+			logger.Error(err.Error(), nil)
+			return err
 		}
 	}
+	return nil
 }

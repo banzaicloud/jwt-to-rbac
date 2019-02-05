@@ -9,3 +9,4 @@ customGroups:
   - verbs: [ "get", "list" ]
     resources: [ "deployments", "replicasets", "pods" ]
     apiGroups: [ "", "extensions", "apps" ]
+kubeConfig: "/Users/poke/.kube/config"

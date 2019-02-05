@@ -20,11 +20,8 @@ import (
 	"net/http"
 
 	"github.com/banzaicloud/jwt-to-rbac/internal/config"
-	"github.com/banzaicloud/jwt-to-rbac/internal/errorhandler"
-	"github.com/banzaicloud/jwt-to-rbac/internal/log"
 	oidc "github.com/coreos/go-oidc"
 	"github.com/goph/emperror"
-	"github.com/goph/logur"
 )
 
 // FederatedClaims dex
@@ -38,19 +35,6 @@ type User struct {
 	Email            string
 	Groups           []string
 	FederatedClaimas FederatedClaims
-}
-
-var logger logur.Logger
-var errorHandler emperror.Handler
-
-func init() {
-
-	logConfig := log.Config{Format: "json", Level: "4", NoColor: true}
-	logger = log.NewLogger(logConfig)
-	logger = log.WithFields(logger, map[string]interface{}{"package": "tokenhandler"})
-
-	errorHandler = errorhandler.New(logger)
-	defer emperror.HandleRecover(errorHandler)
 }
 
 func initProvider(config *config.Config) (*oidc.IDTokenVerifier, error) {
