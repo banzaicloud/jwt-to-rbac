@@ -16,22 +16,25 @@ package main
 
 import (
 	"net/http"
+	"strconv"
 
 	"github.com/banzaicloud/jwt-to-rbac/internal/app"
 	"github.com/banzaicloud/jwt-to-rbac/internal/config"
 	"github.com/banzaicloud/jwt-to-rbac/internal/log"
+	"github.com/goph/emperror"
+	"github.com/pkg/errors"
 )
 
 func main() {
-	logConfig := log.Config{Format: "json", Level: "4", NoColor: true}
+
+	configuration, err := config.GetConfig()
+	if err != nil {
+		emperror.Panic(errors.Wrap(err, "failed to init get configuration"))
+	}
+
+	logConfig := log.Config{Format: configuration.Log.Format, Level: strconv.Itoa(configuration.Log.Level), NoColor: configuration.Log.NoColor}
 	logger := log.NewLogger(logConfig)
 	logger = log.WithFields(logger, map[string]interface{}{"package": "main"})
-
-	var err error
-	configuration, err := config.InitConfig()
-	if err != nil {
-		logger.Warn(err.Error(), nil)
-	}
 
 	logger.Info("configuration info", map[string]interface{}{
 		"ClientID":   configuration.Dex.ClientID,
@@ -42,7 +45,8 @@ func main() {
 	app := &app.App{
 		Mux:    &http.ServeMux{},
 		Config: configuration,
+		Logger: logger,
 	}
 	app.InitApp()
-	app.Run(logger)
+	app.Run()
 }

@@ -34,8 +34,6 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 )
 
-var logger logur.Logger
-
 const defautlLabelKey string = "generatedby"
 
 var defaultLabel = labels{
@@ -85,22 +83,23 @@ type RBACHandler struct {
 	rbacClientSet *clientrbacv1.RbacV1Client
 }
 
-func init() {
-	logConfig := log.Config{Format: "json", Level: "4", NoColor: true}
-	logger = log.NewLogger(logConfig)
-	logger = log.WithFields(logger, map[string]interface{}{"package": "rbachandler"})
+// RBACList struct
+type RBACList struct {
+	SAList        []string `json:"sa_list"`
+	CRoleList     []string `json:"crole_list"`
+	CRoleBindList []string `json:"crolebind_list"`
 }
 
 // NewRBACHandler create RBACHandler
-func NewRBACHandler(kubeconfig string) (*RBACHandler, error) {
-	coreClientSet, rbacClientSet, err := getK8sClientSets(kubeconfig)
+func NewRBACHandler(kubeconfig string, logger logur.Logger) (*RBACHandler, error) {
+	coreClientSet, rbacClientSet, err := getK8sClientSets(kubeconfig, logger)
 	if err != nil {
 		return nil, err
 	}
 	return &RBACHandler{coreClientSet, rbacClientSet}, nil
 }
 
-func getK8sClientSets(kubeconfig string) (*clientcorev1.CoreV1Client, *clientrbacv1.RbacV1Client, error) {
+func getK8sClientSets(kubeconfig string, logger logur.Logger) (*clientcorev1.CoreV1Client, *clientrbacv1.RbacV1Client, error) {
 	logger.Info("Kubeconfig get info", map[string]interface{}{"KubeConfig": kubeconfig})
 	var config *rest.Config
 	var err error
@@ -129,31 +128,65 @@ func getK8sClientSets(kubeconfig string) (*clientcorev1.CoreV1Client, *clientrba
 	return coreClientSet, rbacClientSet, nil
 }
 
-// ListClusterroleBindings clusterrolebindings
-func ListClusterroleBindings(config *config.Config) ([]string, error) {
-	rbacHandler, err := NewRBACHandler(config.KubeConfig)
+// ListRBACResources clusterrolebindings
+func ListRBACResources(config *config.Config, logger logur.Logger) (*RBACList, error) {
+	logger = log.WithFields(logger, map[string]interface{}{"package": "rbachandler"})
+	rbacHandler, err := NewRBACHandler(config.KubeConfig, logger)
 	if err != nil {
-		return nil, err
+		return &RBACList{}, err
 	}
-	rbacList, err := rbacHandler.listClusterroleBindings()
+	cRoleBindList, err := rbacHandler.listClusterroleBindings()
 	if err != nil {
-		return nil, err
+		return &RBACList{}, err
+	}
+	cRoleList, err := rbacHandler.listClusterroles()
+	if err != nil {
+		return &RBACList{}, err
+	}
+	saList, err := rbacHandler.listServiceAccount()
+	if err != nil {
+		return &RBACList{}, err
+	}
+	rbacList := &RBACList{
+		CRoleBindList: cRoleBindList,
+		CRoleList:     cRoleList,
+		SAList:        saList,
 	}
 	return rbacList, nil
 }
 
 func (rh *RBACHandler) listClusterroleBindings() ([]string, error) {
 	bindings := rh.rbacClientSet.ClusterRoleBindings()
-	binds, err := bindings.List(metav1.ListOptions{})
+	labelSelect := fmt.Sprintf("%s=%s", defautlLabelKey, defaultLabel[defautlLabelKey])
+	listOptions := metav1.ListOptions{
+		LabelSelector: labelSelect,
+	}
+	binds, err := bindings.List(listOptions)
 	if err != nil {
 		return nil, emperror.WrapWith(err, "unable to list bindings", "ListOptions", metav1.ListOptions{})
 	}
-	var rbacList []string
+	var cRoleBindList []string
 	for _, b := range binds.Items {
-		rbacList = append(rbacList, b.GetName())
+		cRoleBindList = append(cRoleBindList, b.GetName())
 	}
-	rh.listServiceAccount()
-	return rbacList, nil
+	return cRoleBindList, nil
+}
+
+func (rh *RBACHandler) listClusterroles() ([]string, error) {
+	clusterRoles := rh.rbacClientSet.ClusterRoles()
+	labelSelect := fmt.Sprintf("%s=%s", defautlLabelKey, defaultLabel[defautlLabelKey])
+	listOptions := metav1.ListOptions{
+		LabelSelector: labelSelect,
+	}
+	cRoles, err := clusterRoles.List(listOptions)
+	if err != nil {
+		return nil, emperror.WrapWith(err, "unable to list clusterroles", "ListOptions", metav1.ListOptions{})
+	}
+	var cRoleList []string
+	for _, b := range cRoles.Items {
+		cRoleList = append(cRoleList, b.GetName())
+	}
+	return cRoleList, nil
 }
 
 // ListServiceAccount list serviceaccount
@@ -297,7 +330,7 @@ func generateClusterRole(group string, config *config.Config) (clusterRole, erro
 	return cRole, nil
 }
 
-func generateRbacResources(user *tokenhandler.User, config *config.Config, nameSpaces []string) (*rbacResources, error) {
+func generateRbacResources(user *tokenhandler.User, config *config.Config, nameSpaces []string, logger logur.Logger) (*rbacResources, error) {
 	var saName string
 	if user.FederatedClaimas.ConnectorID == "github" {
 		saName = user.FederatedClaimas.UserID
@@ -346,16 +379,18 @@ func generateRbacResources(user *tokenhandler.User, config *config.Config, nameS
 }
 
 // CreateRBAC create RBAC resources
-func CreateRBAC(user *tokenhandler.User, config *config.Config) error {
-	rbacHandler, err := NewRBACHandler(config.KubeConfig)
-	if err != nil {
+func CreateRBAC(user *tokenhandler.User, config *config.Config, logger logur.Logger) error {
+	logger = log.WithFields(logger, map[string]interface{}{"package": "rbachandler"})
 
+	rbacHandler, err := NewRBACHandler(config.KubeConfig, logger)
+	if err != nil {
+		return err
 	}
 	nameSpaces, err := rbacHandler.listNamespaces()
 	if err != nil {
 		return err
 	}
-	rbacResources, err := generateRbacResources(user, config, nameSpaces)
+	rbacResources, err := generateRbacResources(user, config, nameSpaces, logger)
 	if err != nil {
 		logger.Error(err.Error(), nil)
 		return err
@@ -382,4 +417,9 @@ func CreateRBAC(user *tokenhandler.User, config *config.Config) error {
 		}
 	}
 	return nil
+}
+
+// DeleteRBAC deletes RBAC resources
+func DeleteRBAC(user string, config *config.Config, logger logur.Logger) {
+	
 }

@@ -11,3 +11,4 @@
 !Makefile
 !go.mod
 !go.sum
+!config/config.yaml

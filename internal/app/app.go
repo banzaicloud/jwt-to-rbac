@@ -16,9 +16,11 @@ package app
 
 import (
 	"encoding/json"
+	"fmt"
 	"io/ioutil"
 	"net/http"
 	"os"
+	"strconv"
 
 	"github.com/goph/logur"
 
@@ -31,6 +33,7 @@ import (
 type App struct {
 	Mux    *http.ServeMux
 	Config *config.Config
+	Logger logur.Logger
 }
 
 // InitApp initalize http application
@@ -41,25 +44,28 @@ func (a *App) InitApp() {
 }
 
 // Run serve http
-func (a *App) Run(logger logur.Logger) {
-	err := http.ListenAndServe(":"+a.Config.Server.Port, a.Mux)
+func (a *App) Run() {
+	err := http.ListenAndServe(fmt.Sprintf(":%s", strconv.Itoa(a.Config.Server.Port)), a.Mux)
 	if err != nil {
-		logger.Error(err.Error(), nil)
+		a.Logger.Error(err.Error(), nil)
 		os.Exit(1)
 	}
 }
 
 // ListK8sResources listing ServiceAccounts
 func (a *App) ListK8sResources(w http.ResponseWriter, r *http.Request) {
-	rbacList, err := rbachandler.ListClusterroleBindings(a.Config)
+	w.Header().Set("Content-Type", "application/json")
+	rbacList, err := rbachandler.ListRBACResources(a.Config, a.Logger)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
 	}
 	jsonBody, err := json.Marshal(rbacList)
 	if err != nil {
-		http.Error(w, "Error converting results to json",
-			http.StatusInternalServerError)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
 	}
+	w.WriteHeader(http.StatusOK)
 	_, _ = w.Write(jsonBody)
 }
 
@@ -68,31 +74,33 @@ func (a *App) CreateRBACfromJWT(w http.ResponseWriter, r *http.Request) {
 	type jwtToken struct {
 		Token string `json:"token"`
 	}
-	if r.Method == "POST" {
-		body, err := ioutil.ReadAll(r.Body)
+	w.Header().Set("Content-Type", "application/json")
+	if r.Method != "POST" {
+		http.Error(w, "Invalid request method", http.StatusMethodNotAllowed)
+		return
+	}
+	body, err := ioutil.ReadAll(r.Body)
 
-		if err != nil {
-			http.Error(w, "Error reading request body",
-				http.StatusInternalServerError)
-		}
-		res := jwtToken{}
-		err = json.Unmarshal(body, &res)
-		if err != nil {
-			http.Error(w, err.Error(), http.StatusBadRequest)
-			return
-		}
-		user, err := tokenhandler.Authorize(res.Token, a.Config)
+	if err != nil {
+		http.Error(w, "Error reading request body", http.StatusInternalServerError)
+	}
+	res := jwtToken{}
+	err = json.Unmarshal(body, &res)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	user, err := tokenhandler.Authorize(res.Token, a.Config)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+	} else {
+		err = rbachandler.CreateRBAC(user, a.Config, a.Logger)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
-		} else {
-			b, _ := json.Marshal(user)
-			_, _ = w.Write(b)
-			err = rbachandler.CreateRBAC(user, a.Config)
-			if err != nil {
-				http.Error(w, err.Error(), http.StatusInternalServerError)
-			}
+			return
 		}
-	} else {
-		http.Error(w, "Invalid request method", http.StatusMethodNotAllowed)
+		b, _ := json.Marshal(user)
+		w.WriteHeader(http.StatusCreated)
+		_, _ = w.Write(b)
 	}
 }

@@ -27,6 +27,7 @@ type Config struct {
 	Server       Server
 	CustomGroups []CustomGroup
 	KubeConfig   string
+	Log          Log
 }
 
 type Dex struct {
@@ -35,7 +36,7 @@ type Dex struct {
 }
 
 type Server struct {
-	Port string
+	Port int
 }
 
 type CustomGroup struct {
@@ -49,8 +50,14 @@ type CustomRule struct {
 	APIGroups []string
 }
 
-// InitConfig get config
-func InitConfig() (*Config, error) {
+type Log struct {
+	Level   int
+	NoColor bool
+	Format  string
+}
+
+// GetConfig get config
+func GetConfig() (*Config, error) {
 	var configuration Config
 
 	viper.SetConfigName("config")

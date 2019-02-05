@@ -20,7 +20,9 @@ import (
 	"testing"
 
 	"github.com/banzaicloud/jwt-to-rbac/internal/config"
+	"github.com/banzaicloud/jwt-to-rbac/internal/log"
 	"github.com/banzaicloud/jwt-to-rbac/pkg/tokenhandler"
+	"github.com/goph/logur"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -41,12 +43,18 @@ func createFakeConfig(groupName string) *config.Config {
 			IssuerURL: "http://localhost/dex",
 		},
 		Server: config.Server{
-			Port: "5555",
+			Port: 5555,
 		},
 		CustomGroups: []config.CustomGroup{customGroup},
 		KubeConfig:   kubeconfig,
 	}
 	return config
+}
+
+func createLogger() logur.Logger {
+	logConfig := log.Config{Format: "json", Level: "4", NoColor: true}
+	logger := log.NewLogger(logConfig)
+	return log.WithFields(logger, map[string]interface{}{"package": "rbachandler"})
 }
 
 func TestGenerateRules(t *testing.T) {
@@ -61,6 +69,7 @@ func TestGenerateRules(t *testing.T) {
 }
 
 func TestGenerateRbacResources(t *testing.T) {
+	logger := createLogger()
 	assert := assert.New(t)
 	groups := []string{"admins", "developers"}
 	federatedClaims := tokenhandler.FederatedClaims{
@@ -72,7 +81,7 @@ func TestGenerateRbacResources(t *testing.T) {
 		Groups:           groups,
 		FederatedClaimas: federatedClaims,
 	}
-	testRbacResources, _ := generateRbacResources(user, createFakeConfig("developers"), []string{"default"})
+	testRbacResources, _ := generateRbacResources(user, createFakeConfig("developers"), []string{"default"}, logger)
 	roleSuccess := assert.Equal(len(testRbacResources.clusterRoles), 1)
 	assert.Equal(len(testRbacResources.clusterRoleBindings), 2)
 	assert.Equal(testRbacResources.serviceAccount.name, "janedoe-example-com")
@@ -87,7 +96,7 @@ func TestGenerateRbacResources(t *testing.T) {
 	assert.ElementsMatch(bindNames, []string{"janedoe-example-com-admin-binding", "janedoe-example-com-developers-from-jwt-binding"})
 	assert.ElementsMatch(roleNames, []string{"admin", "developers-from-jwt"})
 
-	testRbacResources, _ = generateRbacResources(user, createFakeConfig("fakegroup"), []string{"default"})
+	testRbacResources, _ = generateRbacResources(user, createFakeConfig("fakegroup"), []string{"default"}, logger)
 	assert.Equal(len(testRbacResources.clusterRoles), 0)
 	assert.Equal(len(testRbacResources.clusterRoleBindings), 1)
 	assert.Equal(testRbacResources.serviceAccount.name, "janedoe-example-com")
@@ -114,6 +123,6 @@ func TestGenerateClusterRole(t *testing.T) {
 
 func TestListClusterroleBindings(t *testing.T) {
 	assert := assert.New(t)
-	_, err := ListClusterroleBindings(createFakeConfig("developers"))
+	_, err := ListRBACResources(createFakeConfig("developers"), createLogger())
 	assert.NoError(err)
 }
