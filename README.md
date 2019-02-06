@@ -3,9 +3,9 @@
 JWT-to-RBAC lets you automatically generate RBAC resources based on JWT.
 
 ### Requirements:
-Configured Dex server which issued used JWT
+Configured Dex server which issued used JWT.
 If you want to issue tokens with Dex you have to configure it with LDAP connector.
-You can use Banzaicloud's [Dex chart](https://github.com/banzaicloud/banzai-charts/tree/master/dex)
+You can use Banzaicloud's [Dex chart](https://github.com/banzaicloud/banzai-charts/tree/master/dex).
 If you need LDAP server as well, you can [deploy with docker](https://github.com/osixia/docker-openldap) 
 
 ### Build jwt-to-rbac docker image:
@@ -18,15 +18,39 @@ make docker
 kubectl create -f deploy/configmap.yaml
 kubectl create -f deploy/deployment.yaml
 kubectl create -f deploy/service.yaml
-# checking locally
+# port-forward locally
 kubectl port-forward svc/jwt-to-rbac 5555
 ```
+### Create resources using cURL 
+```shell
+# post JWT
+curl --request POST \
+  --url http://localhost:5555 \
+  --header ': ' \
+  --header 'Content-Type: application/json' \
+  --header 'cache-control: no-cache' \
+  --data '{\n"token": "jwt.toke.data"\n}'
 
+# get generated resources
+curl --request GET \
+  --url http://localhost:5555/list \
+  --header 'cache-control: no-cache'
+
+# get tokens for generated ServiceAccount
+curl --request GET \
+  --url http://localhost:5555/secret/janedoe-example-com \
+  --header 'cache-control: no-cache' \
+
+# delete generated ServiceAccount anits ClusterRoleBindings
+curl --request DELETE \
+  --url http://localhost:5555/remove/janedoe-example-com \
+  --header 'cache-control: no-cache'
+```
 
 ### Example JWT issued by Dex:
 ```json
 {
-  "iss": "http://dex/dex",
+  "iss": "http://dex-service/dex",
   "sub": "CiNjbj1qYW5lLG91PVBlb3BsZSxkYz1leGFtcGxlLGRjPW9yZxIEbGRhcA",
   "aud": "example-app",
   "exp": 1549547733,
