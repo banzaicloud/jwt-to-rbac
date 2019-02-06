@@ -1,0 +1,22 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: jwt-to-rbac
+data:
+  config.yaml: |-
+    dex:
+      clientID: example-app
+      issuerURL: "http://dex/dex"
+    server:
+      port: 5555 
+    kubeConfig: ""
+    log:
+      level: 4
+      format: "json"
+      noColor: true
+    customGroups:
+    - groupName: developers
+      customRules:
+      - verbs: [ "get", "list" ]
+        resources: [ "deployments", "replicasets", "pods" ]
+        apiGroups: [ "", "extensions", "apps" ]

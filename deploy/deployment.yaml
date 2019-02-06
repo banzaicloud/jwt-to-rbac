@@ -1,0 +1,51 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: jwt-to-rbac
+  labels:
+    app: jwt-to-rbac
+spec:
+  replicas: 1
+  strategy:
+    rollingUpdate:
+      maxSurge: 0
+      maxUnavailable: 1
+    type: RollingUpdate
+  selector:
+    matchLabels:
+      app: jwt-to-rbac
+  template:
+    metadata:
+      labels:
+        app: jwt-to-rbac
+    spec:
+      containers:
+      - name: jwt-to-rbac
+        image: banzaicloud/jwt-to-rbac:master
+        imagePullPolicy: IfNotPresent
+        securityContext:
+          runAsUser: 2
+          allowPrivilegeEscalation: false
+        ports:
+          - containerPort: 5555
+        env:
+          - name: CONFIG_DIR
+            value: "/etc/jwt-to-rbac"
+        volumeMounts:
+        - mountPath: /etc/jwt-to-rbac
+          name: config
+        resources:
+          requests:
+            memory: "64Mi"
+            cpu: "100m"
+          limits:
+            memory: "128Mi"
+            cpu: "500m"
+      volumes:
+      - name: config
+        configMap:
+          defaultMode: 420
+          items:
+          - key: config.yaml
+            path: config.yaml
+          name: jwt-to-rbac
