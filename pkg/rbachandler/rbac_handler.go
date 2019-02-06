@@ -85,9 +85,9 @@ type RBACHandler struct {
 
 // RBACList struct
 type RBACList struct {
-	SAList        []string `json:"sa_list"`
-	CRoleList     []string `json:"crole_list"`
-	CRoleBindList []string `json:"crolebind_list"`
+	SAList        []string `json:"sa_list,omitempty"`
+	CRoleList     []string `json:"crole_list,omitempty"`
+	CRoleBindList []string `json:"crolebind_list,omitempty"`
 }
 
 // NewRBACHandler create RBACHandler
@@ -264,14 +264,19 @@ func (rh *RBACHandler) createClusterRoleBinding(crb *clusterRoleBinding) error {
 			Name:     crb.roleName,
 		},
 	}
-	_, err := rh.rbacClientSet.ClusterRoleBindings().Create(bindObj)
+	ownerReferences, err := rh.getSAReference(crb.saName)
+	if err != nil {
+		return err
+	}
+	bindObj.SetOwnerReferences(ownerReferences)
+	_, err = rh.rbacClientSet.ClusterRoleBindings().Create(bindObj)
 	if err != nil {
 		return emperror.WrapWith(err, "create clusterrolebinding failed", "ClusterRoleBinding", crb.name)
 	}
 	return nil
 }
 
-func (rh *RBACHandler) createCluterRole(cr *clusterRole) error {
+func (rh *RBACHandler) createClusterRole(cr *clusterRole) error {
 	var rules []apirbacv1.PolicyRule
 	for _, rule := range cr.rules {
 		rule := apirbacv1.PolicyRule{
@@ -291,6 +296,15 @@ func (rh *RBACHandler) createCluterRole(cr *clusterRole) error {
 			Labels: cr.labels,
 		},
 		Rules: rules,
+	}
+	if cRole, err := rh.rbacClientSet.ClusterRoles().Get(cr.name, metav1.GetOptions{}); err == nil {
+		if label, ok := cRole.ObjectMeta.Labels[defautlLabelKey]; !ok || label != defaultLabel[defautlLabelKey] {
+			return emperror.WrapWith(errors.New("label mismatch in clusterrole"),
+				"there is a ClusterRole without required label",
+				defautlLabelKey, defaultLabel[defautlLabelKey],
+				"cluster_role", cr.name)
+		}
+		return nil
 	}
 	_, err := rh.rbacClientSet.ClusterRoles().Create(roleObj)
 	if err != nil {
@@ -395,23 +409,20 @@ func CreateRBAC(user *tokenhandler.User, config *config.Config, logger logur.Log
 		logger.Error(err.Error(), nil)
 		return err
 	}
-	err = rbacHandler.createServiceAccount(&rbacResources.serviceAccount)
-	if err != nil {
+	if err := rbacHandler.createServiceAccount(&rbacResources.serviceAccount); err != nil {
 		logger.Error(err.Error(), nil)
 		return err
 	}
 	if len(rbacResources.clusterRoles) > 0 {
 		for _, clusterRole := range rbacResources.clusterRoles {
-			err = rbacHandler.createCluterRole(&clusterRole)
-			if err != nil {
+			if err := rbacHandler.createClusterRole(&clusterRole); err != nil {
 				logger.Error(err.Error(), nil)
 				return err
 			}
 		}
 	}
 	for _, clusterRoleBinding := range rbacResources.clusterRoleBindings {
-		err = rbacHandler.createClusterRoleBinding(&clusterRoleBinding)
-		if err != nil {
+		if err := rbacHandler.createClusterRoleBinding(&clusterRoleBinding); err != nil {
 			logger.Error(err.Error(), nil)
 			return err
 		}
@@ -419,7 +430,56 @@ func CreateRBAC(user *tokenhandler.User, config *config.Config, logger logur.Log
 	return nil
 }
 
+func (rh *RBACHandler) getAndCheckSA(saName string) (*apicorev1.ServiceAccount, error) {
+	saDetails, err := rh.coreClientSet.ServiceAccounts("default").Get(saName, metav1.GetOptions{})
+	if err != nil {
+		return nil, emperror.Wrap(err, "unable to get ServiceAccount details")
+	}
+	if label, ok := saDetails.ObjectMeta.Labels[defautlLabelKey]; !ok || label != defaultLabel[defautlLabelKey] {
+		return nil, emperror.WrapWith(errors.New("label mismatch in serviceaccount"),
+			"getting not jwt-to-rbac generated ServiceAccount is forbidden",
+			defautlLabelKey, defaultLabel[defautlLabelKey],
+			"service_account", saName)
+	}
+	return saDetails, nil
+}
+
+func (rh *RBACHandler) getSAReference(saName string) ([]metav1.OwnerReference, error) {
+	saDetails, err := rh.getAndCheckSA(saName)
+	if err != nil {
+		return nil, err
+	}
+	owner := metav1.OwnerReference{
+		APIVersion: "v1",
+		Kind:       "ServiceAccount",
+		Name:       saName,
+		UID:        saDetails.ObjectMeta.UID,
+	}
+
+	return []metav1.OwnerReference{owner}, nil
+}
+
+func (rh *RBACHandler) removeServiceAccount(saName string, logger logur.Logger) error {
+	if _, err := rh.getAndCheckSA(saName); err != nil {
+		//logger.Error(err.Error(), nil)
+		return err
+	}
+	err := rh.coreClientSet.ServiceAccounts("default").Delete(saName, &metav1.DeleteOptions{})
+	if err != nil {
+		return emperror.WrapWith(err, "unable to delete ServiceAccount", "service_account", saName)
+	}
+	return nil
+}
+
 // DeleteRBAC deletes RBAC resources
-func DeleteRBAC(user string, config *config.Config, logger logur.Logger) {
-	
+func DeleteRBAC(saName string, config *config.Config, logger logur.Logger) error {
+	rbacHandler, err := NewRBACHandler(config.KubeConfig, logger)
+	if err != nil {
+		return err
+	}
+	if err := rbacHandler.removeServiceAccount(saName, logger); err != nil {
+		logger.Error(err.Error(), nil)
+		return err
+	}
+	return nil
 }

@@ -36,6 +36,11 @@ func main() {
 	logger := log.NewLogger(logConfig)
 	logger = log.WithFields(logger, map[string]interface{}{"package": "main"})
 
+	logger.Debug("build info", map[string]interface{}{
+		"Version":    Version,
+		"CommitHash": CommitHash,
+		"BuildDate":  BuildDate})
+
 	logger.Info("configuration info", map[string]interface{}{
 		"ClientID":   configuration.Dex.ClientID,
 		"IssuerURL":  configuration.Dex.IssuerURL,
