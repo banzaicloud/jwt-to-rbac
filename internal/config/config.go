@@ -28,6 +28,7 @@ type Config struct {
 	CustomGroups []CustomGroup
 	KubeConfig   string
 	Log          Log
+	APIServer    string
 }
 
 type Dex struct {

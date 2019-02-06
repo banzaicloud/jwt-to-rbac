@@ -1,6 +1,7 @@
 module github.com/banzaicloud/jwt-to-rbac
 
 require (
+	github.com/BurntSushi/toml v0.3.1 // indirect
 	github.com/coreos/go-oidc v2.0.0+incompatible
 	github.com/gogo/protobuf v1.2.0 // indirect
 	github.com/google/gofuzz v0.0.0-20170612174753-24818f796faf // indirect
@@ -14,6 +15,7 @@ require (
 	github.com/pquerna/cachecontrol v0.0.0-20180517163645-1555304b9b35 // indirect
 	github.com/sirupsen/logrus v1.3.0
 	github.com/spf13/viper v1.3.1
+	github.com/stretchr/testify v1.2.2
 	golang.org/x/crypto v0.0.0-20190131182504-b8fe1690c613 // indirect
 	golang.org/x/net v0.0.0-20190125091013-d26f9f9a57f3 // indirect
 	golang.org/x/oauth2 v0.0.0-20190130055435-99b60b757ec1 // indirect

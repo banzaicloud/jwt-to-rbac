@@ -5,7 +5,7 @@ dex:
 server:
   port: 5555
 
-kubeConfig: "/Users/poke/.kube/config"
+kubeConfig: ""
 
 log:
   level: 4

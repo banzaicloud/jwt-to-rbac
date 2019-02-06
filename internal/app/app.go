@@ -42,6 +42,7 @@ func (a *App) InitApp() {
 	a.Mux.HandleFunc("/list", a.ListK8sResources)
 	a.Mux.HandleFunc("/remove/", a.DeleteSA)
 	a.Mux.HandleFunc("/", a.CreateRBACfromJWT)
+	a.Mux.HandleFunc("/secret/", a.GetSAcredential)
 }
 
 // Run serve http
@@ -56,6 +57,10 @@ func (a *App) Run() {
 // ListK8sResources listing ServiceAccounts
 func (a *App) ListK8sResources(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
+	if r.Method != "GET" {
+		http.Error(w, "Invalid request method", http.StatusMethodNotAllowed)
+		return
+	}
 	rbacList, err := rbachandler.ListRBACResources(a.Config, a.Logger)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -113,10 +118,28 @@ func (a *App) DeleteSA(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Invalid request method", http.StatusMethodNotAllowed)
 		return
 	}
-	saName := r.URL.Path[len("/delete/"):]
+	saName := r.URL.Path[len("/remove/"):]
 	if err := rbachandler.DeleteRBAC(saName, a.Config, a.Logger); err != nil {
 		http.Error(w, err.Error(), http.StatusNotFound)
 		return
 	}
 	w.WriteHeader(http.StatusAccepted)
+}
+
+// GetSAcredential get k8s token to sa
+func (a *App) GetSAcredential(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	if r.Method != "GET" {
+		http.Error(w, "Invalid request method", http.StatusMethodNotAllowed)
+		return
+	}
+	saName := r.URL.Path[len("/secret/"):]
+	secretData, err := rbachandler.GetK8sToken(saName, a.Config, a.Logger)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusNotFound)
+		return
+	}
+	b, _ := json.Marshal(secretData)
+	w.WriteHeader(http.StatusOK)
+	_, _ = w.Write(b)
 }

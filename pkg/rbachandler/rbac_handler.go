@@ -77,17 +77,21 @@ type rbacResources struct {
 	serviceAccount      serviceAccount
 }
 
-// RBACHandler struct
+// RBACHandler implements getting, creating and deleting resources
 type RBACHandler struct {
 	coreClientSet *clientcorev1.CoreV1Client
 	rbacClientSet *clientrbacv1.RbacV1Client
 }
 
-// RBACList struct
 type RBACList struct {
 	SAList        []string `json:"sa_list,omitempty"`
 	CRoleList     []string `json:"crole_list,omitempty"`
 	CRoleBindList []string `json:"crolebind_list,omitempty"`
+}
+
+type SACredential struct {
+	Name string            `json:"name"`
+	Data map[string][]byte `json:"data"`
 }
 
 // NewRBACHandler create RBACHandler
@@ -100,7 +104,6 @@ func NewRBACHandler(kubeconfig string, logger logur.Logger) (*RBACHandler, error
 }
 
 func getK8sClientSets(kubeconfig string, logger logur.Logger) (*clientcorev1.CoreV1Client, *clientrbacv1.RbacV1Client, error) {
-	logger.Info("Kubeconfig get info", map[string]interface{}{"KubeConfig": kubeconfig})
 	var config *rest.Config
 	var err error
 	if kubeconfig == "" {
@@ -461,7 +464,6 @@ func (rh *RBACHandler) getSAReference(saName string) ([]metav1.OwnerReference, e
 
 func (rh *RBACHandler) removeServiceAccount(saName string, logger logur.Logger) error {
 	if _, err := rh.getAndCheckSA(saName); err != nil {
-		//logger.Error(err.Error(), nil)
 		return err
 	}
 	err := rh.coreClientSet.ServiceAccounts("default").Delete(saName, &metav1.DeleteOptions{})
@@ -482,4 +484,38 @@ func DeleteRBAC(saName string, config *config.Config, logger logur.Logger) error
 		return err
 	}
 	return nil
+}
+
+// GetK8sToken getting serviceaccount secrets data
+func GetK8sToken(saName string, config *config.Config, logger logur.Logger) ([]*SACredential, error) {
+	rbacHandler, err := NewRBACHandler(config.KubeConfig, logger)
+	if err != nil {
+		return nil, err
+	}
+	saDetails, err := rbacHandler.getAndCheckSA(saName)
+	if err != nil {
+		return nil, err
+	}
+	var saCreds []*SACredential
+	for _, secrets := range saDetails.Secrets {
+		data, err := rbacHandler.getToken(secrets.Name)
+		if err != nil {
+			return nil, err
+		}
+		saCred := &SACredential{
+			Name: secrets.Name,
+			Data: data,
+		}
+		saCreds = append(saCreds, saCred)
+	}
+
+	return saCreds, nil
+}
+
+func (rh *RBACHandler) getToken(name string) (map[string][]byte, error) {
+	secret, err := rh.coreClientSet.Secrets("default").Get(name, metav1.GetOptions{})
+	if err != nil {
+		return nil, emperror.With(err, "secret", name)
+	}
+	return secret.Data, nil
 }

@@ -126,3 +126,13 @@ func TestListClusterroleBindings(t *testing.T) {
 	_, err := ListRBACResources(createFakeConfig("developers"), createLogger())
 	assert.NoError(err)
 }
+
+func TestGetAndCheckSA(t *testing.T) {
+	config := createFakeConfig("developers")
+	rbacHandler, _ := NewRBACHandler(config.KubeConfig, createLogger())
+	_, err := rbacHandler.getAndCheckSA("default")
+	assert := assert.New(t)
+	if err != nil {
+		assert.EqualError(err, "getting not jwt-to-rbac generated ServiceAccount is forbidden: label mismatch in serviceaccount")
+	}
+}
