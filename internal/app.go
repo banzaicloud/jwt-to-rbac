@@ -12,27 +12,23 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package app
+package internal
 
 import (
 	"encoding/json"
-	"fmt"
 	"io/ioutil"
 	"net/http"
-	"os"
-	"strconv"
 
-	"github.com/goph/logur"
-
-	"github.com/banzaicloud/jwt-to-rbac/internal/config"
 	"github.com/banzaicloud/jwt-to-rbac/pkg/rbachandler"
 	"github.com/banzaicloud/jwt-to-rbac/pkg/tokenhandler"
+	"github.com/goph/logur"
 )
 
 // App http application
 type App struct {
 	Mux    *http.ServeMux
-	Config *config.Config
+	TConf  *tokenhandler.Config
+	RConf  *rbachandler.Config
 	Logger logur.Logger
 }
 
@@ -45,15 +41,6 @@ func (a *App) InitApp() {
 	a.Mux.HandleFunc("/secret/", a.GetSAcredential)
 }
 
-// Run serve http
-func (a *App) Run() {
-	err := http.ListenAndServe(fmt.Sprintf(":%s", strconv.Itoa(a.Config.Server.Port)), a.Mux)
-	if err != nil {
-		a.Logger.Error(err.Error(), nil)
-		os.Exit(1)
-	}
-}
-
 // ListK8sResources listing ServiceAccounts
 func (a *App) ListK8sResources(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
@@ -61,7 +48,7 @@ func (a *App) ListK8sResources(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Invalid request method", http.StatusMethodNotAllowed)
 		return
 	}
-	rbacList, err := rbachandler.ListRBACResources(a.Config, a.Logger)
+	rbacList, err := rbachandler.ListRBACResources(a.RConf, a.Logger)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -96,11 +83,11 @@ func (a *App) CreateRBACfromJWT(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-	user, err := tokenhandler.Authorize(res.Token, a.Config)
+	user, err := tokenhandler.Authorize(res.Token, a.TConf)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 	} else {
-		err = rbachandler.CreateRBAC(user, a.Config, a.Logger)
+		err = rbachandler.CreateRBAC(user, a.RConf, a.Logger)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
@@ -119,7 +106,7 @@ func (a *App) DeleteSA(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	saName := r.URL.Path[len("/remove/"):]
-	if err := rbachandler.DeleteRBAC(saName, a.Config, a.Logger); err != nil {
+	if err := rbachandler.DeleteRBAC(saName, a.RConf, a.Logger); err != nil {
 		http.Error(w, err.Error(), http.StatusNotFound)
 		return
 	}
@@ -134,7 +121,7 @@ func (a *App) GetSAcredential(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	saName := r.URL.Path[len("/secret/"):]
-	secretData, err := rbachandler.GetK8sToken(saName, a.Config, a.Logger)
+	secretData, err := rbachandler.GetK8sToken(saName, a.RConf, a.Logger)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusNotFound)
 		return

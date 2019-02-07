@@ -19,7 +19,6 @@ import (
 	"errors"
 	"net/http"
 
-	"github.com/banzaicloud/jwt-to-rbac/internal/config"
 	oidc "github.com/coreos/go-oidc"
 	"github.com/goph/emperror"
 )
@@ -37,7 +36,7 @@ type User struct {
 	FederatedClaimas FederatedClaims
 }
 
-func initProvider(config *config.Config) (*oidc.IDTokenVerifier, error) {
+func initProvider(config *Config) (*oidc.IDTokenVerifier, error) {
 	// Initialize a provider by specifying dex's issuer URL.
 	ctx := oidc.ClientContext(context.Background(), http.DefaultClient)
 	provider, err := oidc.NewProvider(ctx, config.Dex.IssuerURL)
@@ -50,7 +49,7 @@ func initProvider(config *config.Config) (*oidc.IDTokenVerifier, error) {
 }
 
 // Authorize verifies a bearer token and pulls user information form the claims.
-func Authorize(bearerToken string, config *config.Config) (*User, error) {
+func Authorize(bearerToken string, config *Config) (*User, error) {
 	idTokenVerifier, err := initProvider(config)
 	if err != nil {
 		return nil, err

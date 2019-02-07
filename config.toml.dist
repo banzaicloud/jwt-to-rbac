@@ -1,0 +1,35 @@
+[app]
+addr = ":5555"
+
+[log]
+level = "4"
+format = "json"
+noColor = true
+
+[tokenhandler]
+
+[tokenhandler.dex]
+clientID = "example-app"
+issuerURL = "http://dex/dex"
+
+[rbachandler]
+kubeConfig = ""
+
+[[rbachandler.customGroups]]
+groupName = "developers"
+
+[[rbachandler.customGroups.customRules]]
+verbs = [
+  "get",
+  "list"
+]
+resources = [
+  "deployments",
+  "replicasets",
+  "pods"
+]
+apiGroups = [
+  "",
+  "extensions",
+  "apps"
+]

@@ -19,33 +19,25 @@ import (
 	"path"
 	"testing"
 
-	"github.com/banzaicloud/jwt-to-rbac/internal/config"
 	"github.com/banzaicloud/jwt-to-rbac/internal/log"
 	"github.com/banzaicloud/jwt-to-rbac/pkg/tokenhandler"
 	"github.com/goph/logur"
 	"github.com/stretchr/testify/assert"
 )
 
-func createFakeConfig(groupName string) *config.Config {
+func createFakeConfig(groupName string) *Config {
 	kubeconfig := path.Join(os.Getenv("HOME"), ".kube/config")
-	customRule := config.CustomRule{
+	customRule := CustomRule{
 		Verbs:     []string{"get", "list"},
 		Resources: []string{"deployments", "replicasets", "pods"},
 		APIGroups: []string{"", "extensions", "apps"},
 	}
-	customGroup := config.CustomGroup{
+	customGroup := CustomGroup{
 		GroupName:   groupName,
-		CustomRules: []config.CustomRule{customRule},
+		CustomRules: []CustomRule{customRule},
 	}
-	config := &config.Config{
-		Dex: config.Dex{
-			ClientID:  "example-app",
-			IssuerURL: "http://localhost/dex",
-		},
-		Server: config.Server{
-			Port: 5555,
-		},
-		CustomGroups: []config.CustomGroup{customGroup},
+	config := &Config{
+		CustomGroups: []CustomGroup{customGroup},
 		KubeConfig:   kubeconfig,
 	}
 	return config

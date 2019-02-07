@@ -19,7 +19,6 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/banzaicloud/jwt-to-rbac/internal/config"
 	"github.com/banzaicloud/jwt-to-rbac/internal/log"
 	"github.com/banzaicloud/jwt-to-rbac/pkg/tokenhandler"
 
@@ -132,7 +131,7 @@ func getK8sClientSets(kubeconfig string, logger logur.Logger) (*clientcorev1.Cor
 }
 
 // ListRBACResources clusterrolebindings
-func ListRBACResources(config *config.Config, logger logur.Logger) (*RBACList, error) {
+func ListRBACResources(config *Config, logger logur.Logger) (*RBACList, error) {
 	logger = log.WithFields(logger, map[string]interface{}{"package": "rbachandler"})
 	rbacHandler, err := NewRBACHandler(config.KubeConfig, logger)
 	if err != nil {
@@ -316,7 +315,7 @@ func (rh *RBACHandler) createClusterRole(cr *clusterRole) error {
 	return nil
 }
 
-func generateRules(groupName string, config *config.Config) []rule {
+func generateRules(groupName string, config *Config) []rule {
 	var cRules []rule
 	for _, cGroup := range config.CustomGroups {
 		if cGroup.GroupName == groupName {
@@ -334,7 +333,7 @@ func generateRules(groupName string, config *config.Config) []rule {
 	return cRules
 }
 
-func generateClusterRole(group string, config *config.Config) (clusterRole, error) {
+func generateClusterRole(group string, config *Config) (clusterRole, error) {
 	rules := generateRules(group, config)
 	if len(rules) < 1 {
 		return clusterRole{}, emperror.With(errors.New("cannot find specified group in jwt-to-rbac config"), "groupName", group)
@@ -347,7 +346,7 @@ func generateClusterRole(group string, config *config.Config) (clusterRole, erro
 	return cRole, nil
 }
 
-func generateRbacResources(user *tokenhandler.User, config *config.Config, nameSpaces []string, logger logur.Logger) (*rbacResources, error) {
+func generateRbacResources(user *tokenhandler.User, config *Config, nameSpaces []string, logger logur.Logger) (*rbacResources, error) {
 	var saName string
 	if user.FederatedClaimas.ConnectorID == "github" {
 		saName = user.FederatedClaimas.UserID
@@ -396,18 +395,18 @@ func generateRbacResources(user *tokenhandler.User, config *config.Config, nameS
 }
 
 // CreateRBAC create RBAC resources
-func CreateRBAC(user *tokenhandler.User, config *config.Config, logger logur.Logger) error {
+func CreateRBAC(user *tokenhandler.User, config *Config, logger logur.Logger) error {
 	logger = log.WithFields(logger, map[string]interface{}{"package": "rbachandler"})
 
 	rbacHandler, err := NewRBACHandler(config.KubeConfig, logger)
 	if err != nil {
 		return err
 	}
-	nameSpaces, err := rbacHandler.listNamespaces()
-	if err != nil {
-		return err
-	}
-	rbacResources, err := generateRbacResources(user, config, nameSpaces, logger)
+	// nameSpaces, err := rbacHandler.listNamespaces()
+	// if err != nil {
+	// 	return err
+	// }
+	rbacResources, err := generateRbacResources(user, config, []string{"default"}, logger)
 	if err != nil {
 		logger.Error(err.Error(), nil)
 		return err
@@ -474,7 +473,7 @@ func (rh *RBACHandler) removeServiceAccount(saName string, logger logur.Logger) 
 }
 
 // DeleteRBAC deletes RBAC resources
-func DeleteRBAC(saName string, config *config.Config, logger logur.Logger) error {
+func DeleteRBAC(saName string, config *Config, logger logur.Logger) error {
 	rbacHandler, err := NewRBACHandler(config.KubeConfig, logger)
 	if err != nil {
 		return err
@@ -487,7 +486,7 @@ func DeleteRBAC(saName string, config *config.Config, logger logur.Logger) error
 }
 
 // GetK8sToken getting serviceaccount secrets data
-func GetK8sToken(saName string, config *config.Config, logger logur.Logger) ([]*SACredential, error) {
+func GetK8sToken(saName string, config *Config, logger logur.Logger) ([]*SACredential, error) {
 	rbacHandler, err := NewRBACHandler(config.KubeConfig, logger)
 	if err != nil {
 		return nil, err

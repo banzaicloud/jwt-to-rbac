@@ -16,42 +16,56 @@ package main
 
 import (
 	"net/http"
-	"strconv"
+	"os"
 
-	"github.com/banzaicloud/jwt-to-rbac/internal/app"
-	"github.com/banzaicloud/jwt-to-rbac/internal/config"
+	"github.com/banzaicloud/jwt-to-rbac/internal"
 	"github.com/banzaicloud/jwt-to-rbac/internal/log"
 	"github.com/goph/emperror"
 	"github.com/pkg/errors"
+	"github.com/spf13/viper"
 )
 
 func main() {
+	Configure(viper.GetViper())
 
-	configuration, err := config.GetConfig()
-	if err != nil {
-		emperror.Panic(errors.Wrap(err, "failed to init get configuration"))
+	err := viper.ReadInConfig()
+	_, configFileNotFound := err.(viper.ConfigFileNotFoundError)
+	if !configFileNotFound {
+		emperror.Panic(errors.Wrap(err, "failed to read configuration"))
 	}
 
-	logConfig := log.Config{Format: configuration.Log.Format, Level: strconv.Itoa(configuration.Log.Level), NoColor: configuration.Log.NoColor}
-	logger := log.NewLogger(logConfig)
-	logger = log.WithFields(logger, map[string]interface{}{"package": "main"})
+	var config Config
+	err = viper.Unmarshal(&config)
+	emperror.Panic(errors.Wrap(err, "failed to unmarshal configuration"))
 
-	logger.Debug("build info", map[string]interface{}{
-		"Version":    Version,
-		"CommitHash": CommitHash,
-		"BuildDate":  BuildDate})
+	// Create logger (first thing after configuration loading)
+	logger := log.NewLogger(config.Log)
+
+	// Provide some basic context to all log lines
+	logger = log.WithFields(logger, map[string]interface{}{"service": "jwt-to-rbac"})
+
+	if configFileNotFound {
+		logger.Warn("configuration file not found", nil)
+	}
 
 	logger.Info("configuration info", map[string]interface{}{
-		"ClientID":   configuration.Dex.ClientID,
-		"IssuerURL":  configuration.Dex.IssuerURL,
-		"ServerPort": configuration.Server.Port,
-		"KubeConfig": configuration.KubeConfig})
+		"ClientID":   config.Tokenhandler.Dex.ClientID,
+		"IssuerURL":  config.Tokenhandler.Dex.IssuerURL,
+		"ServerPort": config.App.Addr,
+		"KubeConfig": config.Rbachandler.KubeConfig})
 
-	app := &app.App{
+	app := &internal.App{
 		Mux:    &http.ServeMux{},
-		Config: configuration,
+		TConf:  &config.Tokenhandler,
+		RConf:  &config.Rbachandler,
 		Logger: logger,
 	}
+
 	app.InitApp()
-	app.Run()
+	err = http.ListenAndServe(config.App.Addr, app.Mux)
+	if err != nil {
+		logger.Error(err.Error(), nil)
+		os.Exit(1)
+	}
+
 }

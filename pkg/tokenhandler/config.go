@@ -12,12 +12,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package main
+package tokenhandler
 
-// Provisioned by ldflags
-// nolint: gochecknoglobals
-var (
-	version    string
-	commitHash string
-	buildDate  string
-)
+type Config struct {
+	Dex struct {
+		ClientID  string
+		IssuerURL string
+	}
+}

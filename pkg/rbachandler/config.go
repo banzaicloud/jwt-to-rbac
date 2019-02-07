@@ -12,12 +12,20 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package main
+package rbachandler
 
-// Provisioned by ldflags
-// nolint: gochecknoglobals
-var (
-	version    string
-	commitHash string
-	buildDate  string
-)
+type Config struct {
+	CustomGroups []CustomGroup
+	KubeConfig   string
+}
+
+type CustomGroup struct {
+	GroupName   string
+	CustomRules []CustomRule
+}
+
+type CustomRule struct {
+	Verbs     []string
+	Resources []string
+	APIGroups []string
+}
