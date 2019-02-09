@@ -43,7 +43,7 @@ The whole process is broken down to two main parts:
 8. User authenticate on K8s using `service account token`
 
 **The id_token issued by Dex has a following content:**
-{{< highlight json "linenos=inline" >}}
+```json
 {
   "iss": "http://dex/dex",
   "sub": "CiNjbj1qYW5lLG91PVBlb3BsZSxkYz1leGFtcGxlLGRjPW9yZxIEbGRhcA",
@@ -63,7 +63,7 @@ The whole process is broken down to two main parts:
     "user_id": "cn=jane,ou=People,dc=example,dc=org"
   }
 }
-{{< /highlight >}}
+```
 
 After jwt-to-rbac extracts the information from the token, creates `ServiceAccount` and `ClusterRoleBinding` using one of the default K8s `ClusterRole` as `roleRef` or generate one defined in configuration if it does't exist.
 
@@ -82,7 +82,7 @@ view                | Allows read-only access to see most objects in a namespace
 
 In most of the cases there are different LDAP groups, so custom groups can be configured with custom rules.
 
-{{< highlight toml "linenos=inline" >}}
+```toml
 [[rbachandler.customGroups]]
 groupName = "developers"
 [[rbachandler.customGroups.customRules]]
@@ -100,7 +100,7 @@ apiGroups = [
   "extensions",
   "apps"
 ]
-{{< /highlight >}}
+```
 
 So to conclude on the open source [JWT-to-RBAC](https://github.com/banzaicloud/jwt-to-rbac) project - follow these stpes if you would like to try it or check it out already in action by subscribing to our free developer beta at https://beta.banzaicloud.io/.
 
@@ -108,24 +108,24 @@ So to conclude on the open source [JWT-to-RBAC](https://github.com/banzaicloud/j
 
 After you cloning the [GitHub repository](https://github.com/banzaicloud/jwt-to-rbac) you can compile a code and make a `docker image` with one command.
 
-{{< highlight shell >}}
+```shell
 make docker
-{{< /highlight >}}
+```
 
 If you are using docker-for-desktop or minikube, you'll be able to deploy it using locally with the newly built image.
-{{< highlight shell >}}
+```shell
 kubectl create -f deploy/rbac.yaml
 kubectl create -f deploy/configmap.yaml
 kubectl create -f deploy/deployment.yaml
 kubectl create -f deploy/service.yaml
 # port-forward locally
 kubectl port-forward svc/jwt-to-rbac 5555
-{{< /highlight >}}
+```
 
 Now you can communicate with the jwt-to-rbac app.
 
 ### 2. POST id_token issued by Dex to jwt-to-rbac API
-{{< highlight shell "hl_lines=1-4" >}}
+```shell
 curl --request POST \
   --url http://localhost:5555/ \
   --header 'Content-Type: application/json' \
@@ -143,12 +143,12 @@ curl --request POST \
         "user_id": "cn=jane,ou=People,dc=example,dc=org"
     }
 }
-{{< /highlight >}}
+```
 
 The `ServiceAccount`, `ClusterRoles` (if id_token has some defined custom groups we discussed) and `ClusterRoleBindings` are created.
 
 **Listing the created K8s resources:**
-{{< highlight shell "hl_lines=1-3" >}}
+```shell
 curl --request GET \
   --url http://localhost:5555/list \
   --header 'Content-Type: application/json'
@@ -166,10 +166,10 @@ curl --request GET \
         "janedoe-example-com-developers-from-jwt-binding"
     ]
 }
-{{< /highlight >}}
+```
 
 ### 3. GET the K8s token of `ServiceAccount`
-{{< highlight shell "hl_lines=1-3" >}}
+```shell
 curl --request GET \
   --url http://localhost:5555/secret/janedoe-example-com \
   --header 'Content-Type: application/json'
@@ -185,25 +185,25 @@ curl --request GET \
         }
     }
 ]
-{{< /highlight >}}
+```
 
 Now you have a base64 encoded `service account token`.
 
 ### 4. Accessing with ServiceAccount token 
 
 You can use `service account token` from command line:
-{{< highlight shell >}}
+```shell
 kubectl --token $TOKEN_TEST --server $APISERVER get po
-{{< /highlight >}}
+```
 
 Or create `kubectl` context with it:
-{{< highlight shell >}}
+```shell
 export TOKEN=$(echo "example-k8s-sa-token-base64" | base64 -D)
 kubectl config set-credentials "janedoe-example-com" --token=$TOKEN
 # with kubectl config get-clusters you can get cluster name
 kubectl config set-context "janedoe-example-com-context" --cluster="clustername" --user="janedoe-example-com" --namespace=default
 kubectl config use-context janedoe-example-com-context
 kubectl get pod
-{{< /highlight >}}
+```
 
 > As a final note - since we use Dex, which is an identity service that uses OpenID Connect to drive authentication for other apps, any other supported connector can be used for authentication to Kubernetes.
