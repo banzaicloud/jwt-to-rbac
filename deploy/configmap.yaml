@@ -2,6 +2,7 @@ apiVersion: v1
 kind: ConfigMap
 metadata:
   name: jwt-to-rbac
+  namespace: default
 data:
   config.yaml: |-
     app:

@@ -2,6 +2,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: jwt-to-rbac
+  namespace: default
   labels:
     app: jwt-to-rbac
 spec:
@@ -19,6 +20,7 @@ spec:
       labels:
         app: jwt-to-rbac
     spec:
+      serviceAccountName: jwt-to-rbac
       containers:
       - name: jwt-to-rbac
         image: banzaicloud/jwt-to-rbac:master
