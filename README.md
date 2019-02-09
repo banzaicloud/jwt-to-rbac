@@ -1,25 +1,49 @@
-# jwt-to-rbac
+## JWT-to-RBAC
 
-JWT-to-RBAC lets you automatically generate RBAC resources based on JWT.
+JWT-to-RBAC lets you automatically generate RBAC resources based on JWT token. 
+
+### Context 
+
+For authentication we use [Dex](https://github.com/dexidp/dex) with the LDAP connector. The user in LDAP has group memberships and Dex issues a JWT token containing these memberships. The JWT-to-RBAC project can create `ServiceAccount`, `ClusterRoles` and `ClusterroleBindings` based on JWT tokens. When we create a new `ServiceAccount` K8s automatically generates a `service account token`
+
+For more additional information and context please read this [post](https://banzaicloud.com/blog/k8s-rbac/).
 
 ### Requirements:
-Configured Dex server which issued used JWT.
-If you want to issue tokens with Dex you have to configure it with LDAP connector.
-You can use Banzaicloud's [Dex chart](https://github.com/banzaicloud/banzai-charts/tree/master/dex).
-If you need LDAP server as well, you can [deploy with docker](https://github.com/osixia/docker-openldap) 
 
-### jwt-to-rbac Flow:
+There are some pre-requirements to kick this of for your own testing.
 
-1. User or an authentication App has id_token (JWT)
+* Configured Dex server which issues JWT tokens. If you want to issue tokens with Dex you have to configure it with LDAP connector. You can use the Banzai Cloud] [Dex chart](https://github.com/banzaicloud/banzai-charts/tree/master/dex). 
+* Configured LDAP server - you can use the [openldap](https://github.com/osixia/docker-openldap) docker image
+* Authentication application which uses Dex as an OpenID connector.
+
+> Dex acts as a shim between a client app and the upstream identity provider. The client only needs to understand OpenID Connect to query Dex.
+
+The whole process is broken down to two main parts:
+
+* Dex auth flow
+* jwt-to-rbac ServiceAccount creation flow
+
+**Dex authentication flow:**
+
+1. User visits Authentication App.
+2. Authentication App redirects user to Dex with an OAuth2 request.
+3. Dex determines user's identity.
+4. Dex redirects user to Authentication App with a code.
+5. Authentication App exchanges code with Dex for an id_token.
+
+**jwt-to-rbac Flow:**
+
+1. Authentication App has id_token (JWT)
 2. POST id_token to jwt-to-rbac App
 3. jwt-to-rbac validate id_token with Dex
-4. jwt-to-rbac extract usename, groups and so on from token
-5. jwt-to-rba call APIserver to crate `ServiceAccount`, `ClusterRoles` and `ClusterRoleBindings`
-6. User or an anutheticatin app getting K8s `service account token` trough jwt-to-rbac
+4. jwt-to-rbac extract username, groups and so on from the token
+5. jwt-to-rbac call APIserver to crate `ServiceAccount`, `ClusterRoles` and `ClusterRoleBindings`
+6. jwt-to-rbac get `ServiceAccount` K8s token and provide it to Authentication App
+7. Authentication App sends back the K8s token to User
 8. User authenticate on K8s using `service account token`
 
 **The id_token issued by Dex has a following content:**
-```json
+{{< highlight json "linenos=inline" >}}
 {
   "iss": "http://dex/dex",
   "sub": "CiNjbj1qYW5lLG91PVBlb3BsZSxkYz1leGFtcGxlLGRjPW9yZxIEbGRhcA",
@@ -39,13 +63,13 @@ If you need LDAP server as well, you can [deploy with docker](https://github.com
     "user_id": "cn=jane,ou=People,dc=example,dc=org"
   }
 }
-```
+{{< /highlight >}}
 
-After jwt-to-rbac extract information from token, create `ServiceAccount` and `ClusterRoleBinding` using one of default K8s `ClusterRole` as `roleRef` or generate one defined in configuration if it does't exist.
+After jwt-to-rbac extracts the information from the token, creates `ServiceAccount` and `ClusterRoleBinding` using one of the default K8s `ClusterRole` as `roleRef` or generate one defined in configuration if it does't exist.
 
 ### Default K8s ClusterRoles used by `jwt-to-rbac`
 
-Not all cases create a new `ClusterRole`, for example if a user is member of admin group, don't create this `ClusterRole` because K8s has by default.
+The [JWT-to-RBAC](https://github.com/banzaicloud/jwt-to-rbac) dos not create a new `ClusterRole` in every case; for example if a user is a member of admin group, it doesn't create this `ClusterRole` because K8s has already one by default.
 
 Default ClusterRole | Description 
 --------------------|------------
@@ -56,9 +80,9 @@ view                | Allows read-only access to see most objects in a namespace
 
 ### jwt-to-rbac crate custom `ClusterRole` defined in config
 
-Most of cases there are different LDAP groups, so custo groups are configurable with them rules.
+In most of the cases there are different LDAP groups, so custom groups can be configured with custom rules.
 
-```toml
+{{< highlight toml "linenos=inline" >}}
 [[rbachandler.customGroups]]
 groupName = "developers"
 [[rbachandler.customGroups.customRules]]
@@ -76,28 +100,32 @@ apiGroups = [
   "extensions",
   "apps"
 ]
-```
+{{< /highlight >}}
 
-### Deploy jwt-to-rbac to Kubernetes
+So to conclude on the open source [JWT-to-RBAC](https://github.com/banzaicloud/jwt-to-rbac) project - follow these stpes if you would like to try it or check it out already in action by subscribing to our free developer beta at https://beta.banzaicloud.io/.
 
-After you cloning the [github repository](https://github.com/banzaicloud/jwt-to-rbac) you compile a code and make a `docker image` with one command.
-```shell
+### 1. Deploy jwt-to-rbac to Kubernetes
+
+After you cloning the [GitHub repository](https://github.com/banzaicloud/jwt-to-rbac) you can compile a code and make a `docker image` with one command.
+
+{{< highlight shell >}}
 make docker
-```
+{{< /highlight >}}
 
-If you are using docker-for-desktop or minikube, you'll be able to deploy it using locally built image.
-```shell
+If you are using docker-for-desktop or minikube, you'll be able to deploy it using locally with the newly built image.
+{{< highlight shell >}}
 kubectl create -f deploy/rbac.yaml
 kubectl create -f deploy/configmap.yaml
 kubectl create -f deploy/deployment.yaml
 kubectl create -f deploy/service.yaml
 # port-forward locally
 kubectl port-forward svc/jwt-to-rbac 5555
-```
+{{< /highlight >}}
 
-### Commincate with jwt-to-rbac
-**POST id_token issued by Dex to API**
-```shell
+Now you can communicate with the jwt-to-rbac app.
+
+### 2. POST id_token issued by Dex to jwt-to-rbac API
+{{< highlight shell "hl_lines=1-4" >}}
 curl --request POST \
   --url http://localhost:5555/ \
   --header 'Content-Type: application/json' \
@@ -115,10 +143,12 @@ curl --request POST \
         "user_id": "cn=jane,ou=People,dc=example,dc=org"
     }
 }
-```
+{{< /highlight >}}
 
-**Listing created K8s resources:**
-```shell
+The `ServiceAccount`, `ClusterRoles` (if id_token has some defined custom groups we discussed) and `ClusterRoleBindings` are created.
+
+**Listing the created K8s resources:**
+{{< highlight shell "hl_lines=1-3" >}}
 curl --request GET \
   --url http://localhost:5555/list \
   --header 'Content-Type: application/json'
@@ -136,10 +166,10 @@ curl --request GET \
         "janedoe-example-com-developers-from-jwt-binding"
     ]
 }
-```
+{{< /highlight >}}
 
-**GET K8s token of `ServiceAccount`**
-```shell
+### 3. GET the K8s token of `ServiceAccount`
+{{< highlight shell "hl_lines=1-3" >}}
 curl --request GET \
   --url http://localhost:5555/secret/janedoe-example-com \
   --header 'Content-Type: application/json'
@@ -155,23 +185,25 @@ curl --request GET \
         }
     }
 ]
-```
+{{< /highlight >}}
 
-Now you have a base64 encoded `Service account token`.
+Now you have a base64 encoded `service account token`.
 
-### Accessing with serviceaccount token 
+### 4. Accessing with ServiceAccount token 
 
-You can use `Service account token` from command line:
-```shell
+You can use `service account token` from command line:
+{{< highlight shell >}}
 kubectl --token $TOKEN_TEST --server $APISERVER get po
-```
+{{< /highlight >}}
 
 Or create `kubectl` context with it:
-```shell
+{{< highlight shell >}}
 export TOKEN=$(echo "example-k8s-sa-token-base64" | base64 -D)
 kubectl config set-credentials "janedoe-example-com" --token=$TOKEN
-# with kubectl config get-clusters you can get clustername
+# with kubectl config get-clusters you can get cluster name
 kubectl config set-context "janedoe-example-com-context" --cluster="clustername" --user="janedoe-example-com" --namespace=default
 kubectl config use-context janedoe-example-com-context
 kubectl get pod
-```
+{{< /highlight >}}
+
+> As a final note - since we use Dex, which is an identity service that uses OpenID Connect to drive authentication for other apps, any other supported connector can be used for authentication to Kubernetes.
