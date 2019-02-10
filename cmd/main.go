@@ -54,15 +54,8 @@ func main() {
 		"ServerPort": config.App.Addr,
 		"KubeConfig": config.Rbachandler.KubeConfig})
 
-	app := &internal.App{
-		Mux:    &http.ServeMux{},
-		TConf:  &config.Tokenhandler,
-		RConf:  &config.Rbachandler,
-		Logger: logger,
-	}
-
-	app.InitApp()
-	err = http.ListenAndServe(config.App.Addr, app.Mux)
+	mux := internal.NewApp(&config.Tokenhandler, &config.Rbachandler, logger)
+	err = http.ListenAndServe(config.App.Addr, mux)
 	if err != nil {
 		logger.Error(err.Error(), nil)
 		os.Exit(1)
