@@ -52,7 +52,10 @@ func main() {
 		"ClientID":   config.Tokenhandler.Dex.ClientID,
 		"IssuerURL":  config.Tokenhandler.Dex.IssuerURL,
 		"ServerPort": config.App.Addr,
-		"KubeConfig": config.Rbachandler.KubeConfig})
+		"KubeConfig": config.Rbachandler.KubeConfig,
+		"Version":    Version,
+		"CommitHash": CommitHash,
+		"BuildDate":  BuildDate})
 
 	mux := internal.NewApp(&config.Tokenhandler, &config.Rbachandler, logger)
 	err = http.ListenAndServe(config.App.Addr, mux)
@@ -60,5 +63,4 @@ func main() {
 		logger.Error(err.Error(), nil)
 		os.Exit(1)
 	}
-
 }

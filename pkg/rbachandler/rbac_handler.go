@@ -208,18 +208,6 @@ func (rh *RBACHandler) listServiceAccount() ([]string, error) {
 	return serviceAccList, nil
 }
 
-func (rh *RBACHandler) listNamespaces() ([]string, error) {
-	namespaceList, err := rh.coreClientSet.Namespaces().List(metav1.ListOptions{})
-	if err != nil {
-		return nil, emperror.Wrap(err, "listing namespaces failed")
-	}
-	var nsList []string
-	for _, namespace := range namespaceList.Items {
-		nsList = append(nsList, namespace.GetName())
-	}
-	return nsList, nil
-}
-
 func (rh *RBACHandler) createServiceAccount(sa *serviceAccount) error {
 	saObj := &apicorev1.ServiceAccount{
 		TypeMeta: metav1.TypeMeta{
@@ -402,10 +390,6 @@ func CreateRBAC(user *tokenhandler.User, config *Config, logger logur.Logger) er
 	if err != nil {
 		return err
 	}
-	// nameSpaces, err := rbacHandler.listNamespaces()
-	// if err != nil {
-	// 	return err
-	// }
 	rbacResources, err := generateRbacResources(user, config, []string{"default"}, logger)
 	if err != nil {
 		logger.Error(err.Error(), nil)
