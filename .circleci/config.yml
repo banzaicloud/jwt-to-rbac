@@ -32,9 +32,9 @@ jobs:
                   - "/go/pkg/mod"
 
 
-            - run:
-                  name: Run linter
-                  command: make lint
+            # - run:
+            #       name: Run linter
+            #       command: make lint
 
             - run:
                   name: Run tests
