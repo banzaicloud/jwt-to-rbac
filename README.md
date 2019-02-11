@@ -33,11 +33,11 @@ The whole process is broken down to two main parts:
 
 **jwt-to-rbac Flow:**
 
-1. Authentication App has access token (JWT)
-2. POST access token to jwt-to-rbac App
-3. jwt-to-rbac validates id_token with Dex
+1. Authentication App has ID token (JWT)
+2. POST ID token to jwt-to-rbac App
+3. jwt-to-rbac validates ID token with Dex
 4. jwt-to-rbac extracts username, groups and so on from the token
-5. jwt-to-rbac calls APIserver to crate `ServiceAccount`, `ClusterRoles` and `ClusterRoleBindings`
+5. jwt-to-rbac calls API server to crate `ServiceAccount`, `ClusterRoles` and `ClusterRoleBindings`
 6. jwt-to-rbac get service account token and sends it to Authentication App
 7. Authentication App sends back the service account token to User
 8. User authenticate on K8s using `service account token`
