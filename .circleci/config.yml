@@ -1,47 +1,85 @@
 version: 2
-
 jobs:
-    build:
-        docker:
-            - image: circleci/golang:1.11
-              environment:
-                GO111MODULE: "ON"
-        working_directory: /go/src/github.com/banzaicloud/jwt-to-rbac
+  build:
+    machine:
+      image: circleci/classic:201808-01
+      docker_layer_caching: true
 
-        steps:
-            - checkout
+    environment:
+      GO_VERSION: "1.11.4"
+      K8S_VERSION: v1.13.1
+      KUBECONFIG: /home/circleci/.kube/config
+      MINIKUBE_VERSION: v0.33.1
+      MINIKUBE_WANTKUBECTLDOWNLOADMSG: false
+      MINIKUBE_WANTUPDATENOTIFICATION: false
+      MINIKUBE_WANTREPORTERRORPROMPT: false
+      MINIKUBE_HOME: /home/circleci
+      CHANGE_MINIKUBE_NONE_USER: true
+      GOPATH: /home/circleci/go
+      GO111MODULE: "on"
 
-            - restore_cache:
-                  name: Restore build dependencies
-                  keys:
-                      - build-deps-v1-{{ .Branch }}-{{ checksum "Makefile" }}
+    working_directory: /home/circleci/go/src/github.com/banzaicloud/jwt-to-rbac
+    steps:
+      - checkout
 
-            - restore_cache:
-                name: Restore dependencies
-                keys:
-                  - go-mod-v1-{{ .Branch }}-{{ checksum "go.sum" }}
+      - restore_cache:
+          name: Restore build dependencies
+          keys:
+          - build-deps-v2-{{ .Branch }}-{{ checksum "Makefile" }}
 
-            - run:
-                  name: Build
-                  command: make build
+      - restore_cache:
+          name: Restore dependencies
+          keys:
+            - go-mod-v2-{{ .Branch }}-{{ checksum "go.sum" }}
 
-            - save_cache:
-                name: Save dependencies
-                key: go-mod-v1-{{ .Branch }}-{{ checksum "go.sum" }}
-                paths:
-                  - "/go/pkg/mod"
+      - run:
+          name: Setup golang
+          command: |
+            sudo rm -rf /usr/local/go
+            curl -Lo go.linux-amd64.tar.gz https://dl.google.com/go/go${GO_VERSION}.linux-amd64.tar.gz && sudo tar -C /usr/local -xzf go.linux-amd64.tar.gz
 
+      - run:
+            name: Build
+            command: make build
 
-            # - run:
-            #       name: Run linter
-            #       command: make lint
+      - save_cache:
+          name: Save dependencies
+          key: go-mod-v2-{{ .Branch }}-{{ checksum "go.sum" }}
+          paths:
+            - "/go/pkg/mod"
+      
+      # - run:
+      #     name: Install license checker
+      #     command: curl https://raw.githubusercontent.com/goph/licensei/master/install.sh | bash -s v0.0.7
 
-            - run:
-                  name: Run tests
-                  command: make test
+      # - restore_cache:
+      #     keys:
+      #     - licensei-v2-{{ .Branch }}-{{ checksum "go.sum" }}
 
-            - save_cache:
-                  name: Save build dependencies
-                  key: build-deps-v1-{{ .Branch }}-{{ checksum "Makefile" }}
-                  paths:
-                      - bin/
+      # - run:
+      #     name: Download license information for dependencies
+      #     command: make license-cache
+
+      # - save_cache:
+      #     key: licensei-v2-{{ .Branch }}-{{ checksum "go.sum" }}
+      #     paths:
+      #       - .licensei.cache
+
+      # - run:
+      #     name: Check dependency licenses
+      #     command: make license-check
+
+      - run:
+          name: Setup minikube
+          command: |
+            curl -Lo minikube https://github.com/kubernetes/minikube/releases/download/${MINIKUBE_VERSION}/minikube-linux-amd64 && chmod +x minikube && sudo mv minikube /usr/local/bin/
+
+      - run:
+          name: Start minikube
+          command: |
+            sudo -E minikube start --vm-driver=none --cpus 2 --memory 4096 --kubernetes-version=${K8S_VERSION}
+
+      - run:
+          name: Run verification
+          command:
+              make check
