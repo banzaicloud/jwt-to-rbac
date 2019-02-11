@@ -1,3 +1,5 @@
+[![CircleCI](https://circleci.com/gh/banzaicloud/jwt-to-rbac/tree/master.svg?style=shield)](https://circleci.com/gh/banzaicloud/jwt-to-rbac/tree/master)
+
 ## JWT-to-RBAC
 
 JWT-to-RBAC lets you automatically generate RBAC resources based on JWT token. 
