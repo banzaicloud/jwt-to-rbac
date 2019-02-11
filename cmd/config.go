@@ -39,7 +39,6 @@ type Config struct {
 
 // Configure configures some defaults in the Viper instance.
 func Configure(v *viper.Viper) {
-	const appName = "jwt-ro-rbec"
 	v.AllowEmptyEnv(true)
 	v.SetEnvPrefix("jwttorbac")
 	v.SetConfigName("config")

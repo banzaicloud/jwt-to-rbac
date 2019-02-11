@@ -91,7 +91,7 @@ license-cache: bin/licensei ## Generate license cache
 .PHONY: test
 test: GOARGS += -tags "${GOTAGS}"
 test: ## Run all tests
-	go test ${GOARGS} ./...
+	GO111MODULE=on go test ${GOARGS} ./...
 
 bin/golangci-lint: bin/golangci-lint-${GOLANGCI_VERSION}
 	@ln -sf golangci-lint-${GOLANGCI_VERSION} bin/golangci-lint
