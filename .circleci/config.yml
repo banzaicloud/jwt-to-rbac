@@ -1,4 +1,5 @@
 version: 2
+
 jobs:
     build:
         docker:
@@ -21,8 +22,8 @@ jobs:
                   - go-mod-v1-{{ .Branch }}-{{ checksum "go.sum" }}
 
             - run:
-                  name: Install dependencies
-                  command: make vendor
+                  name: Build
+                  command: make build
 
             - save_cache:
                 name: Save dependencies
@@ -30,9 +31,6 @@ jobs:
                 paths:
                   - "/go/pkg/mod"
 
-            - run:
-                  name: Build
-                  command: make build
 
             - run:
                   name: Run linter
