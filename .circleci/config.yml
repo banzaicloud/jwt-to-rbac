@@ -4,8 +4,8 @@ jobs:
     build:
         docker:
             - image: circleci/golang:1.11
-#              environment:
-#                GO11MODULE: "ON"
+              environment:
+                GO11MODULE: "ON"
         working_directory: /go/src/github.com/banzaicloud/jwt-to-rbac
 
         steps:
