@@ -15,6 +15,8 @@
 package rbachandler
 
 import (
+	"os"
+	"path"
 	"testing"
 
 	"github.com/banzaicloud/jwt-to-rbac/internal/log"
@@ -24,8 +26,7 @@ import (
 )
 
 func createFakeConfig(groupName string) *Config {
-	//	kubeconfig := path.Join(os.Getenv("HOME"), ".kube/config")
-	kubeconfig := ""
+	kubeconfig := path.Join(os.Getenv("HOME"), ".kube/config")
 	customRule := CustomRule{
 		Verbs:     []string{"get", "list"},
 		Resources: []string{"deployments", "replicasets", "pods"},
