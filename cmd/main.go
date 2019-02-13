@@ -20,6 +20,7 @@ import (
 
 	"github.com/banzaicloud/jwt-to-rbac/internal"
 	"github.com/banzaicloud/jwt-to-rbac/internal/log"
+	"github.com/banzaicloud/jwt-to-rbac/pkg/rbachandler"
 	"github.com/goph/emperror"
 	"github.com/pkg/errors"
 	"github.com/spf13/viper"
@@ -56,6 +57,8 @@ func main() {
 		"Version":    Version,
 		"CommitHash": CommitHash,
 		"BuildDate":  BuildDate})
+
+	go rbachandler.WatchSATokens(&config.Rbachandler, logger)
 
 	mux := internal.NewApp(&config.Tokenhandler, &config.Rbachandler, logger)
 	err = http.ListenAndServe(config.App.Addr, mux)

@@ -35,10 +35,10 @@ type HTTPController struct {
 func NewHTTPHandler(tconf *tokenhandler.Config, rconf *rbachandler.Config, logger logur.Logger) http.Handler {
 	mux := http.NewServeMux()
 	controller := NewHTTPController(tconf, rconf, logger)
-	mux.HandleFunc("/list", controller.ListK8sResources)
-	mux.HandleFunc("/remove/", controller.DeleteSA)
-	mux.HandleFunc("/", controller.CreateRBACfromJWT)
-	mux.HandleFunc("/secret/", controller.GetSAcredential)
+	mux.HandleFunc("/list", controller.listK8sResources)
+	mux.HandleFunc("/remove/", controller.deleteSA)
+	mux.HandleFunc("/", controller.createRBACfromJWT)
+	mux.HandleFunc("/secret/", controller.handleSAcredential)
 
 	return mux
 }
@@ -52,8 +52,7 @@ func NewHTTPController(tconf *tokenhandler.Config, rconf *rbachandler.Config, lo
 	}
 }
 
-// ListK8sResources listing ServiceAccounts
-func (a *HTTPController) ListK8sResources(w http.ResponseWriter, r *http.Request) {
+func (a *HTTPController) listK8sResources(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	if r.Method != "GET" {
 		http.Error(w, "Invalid request method", http.StatusMethodNotAllowed)
@@ -74,7 +73,7 @@ func (a *HTTPController) ListK8sResources(w http.ResponseWriter, r *http.Request
 }
 
 // CreateRBACfromJWT converts JWT to K8s RBAC
-func (a *HTTPController) CreateRBACfromJWT(w http.ResponseWriter, r *http.Request) {
+func (a *HTTPController) createRBACfromJWT(w http.ResponseWriter, r *http.Request) {
 	type jwtToken struct {
 		Token string `json:"token"`
 	}
@@ -110,7 +109,7 @@ func (a *HTTPController) CreateRBACfromJWT(w http.ResponseWriter, r *http.Reques
 }
 
 // DeleteSA removes serviceaccount with its bindings
-func (a *HTTPController) DeleteSA(w http.ResponseWriter, r *http.Request) {
+func (a *HTTPController) deleteSA(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	if r.Method != "DELETE" {
 		http.Error(w, "Invalid request method", http.StatusMethodNotAllowed)
@@ -124,9 +123,20 @@ func (a *HTTPController) DeleteSA(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusAccepted)
 }
 
-// GetSAcredential get k8s token to sa
-func (a *HTTPController) GetSAcredential(w http.ResponseWriter, r *http.Request) {
+func (a *HTTPController) handleSAcredential(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
+	if r.Method == "POST" {
+		saName := r.URL.Path[len("/secret/"):]
+		secretData, err := rbachandler.CreateSAToken(saName, a.RConf, "5m", a.Logger)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusNotFound)
+			return
+		}
+		b, _ := json.Marshal(secretData)
+		w.WriteHeader(http.StatusCreated)
+		_, _ = w.Write(b)
+		return
+	}
 	if r.Method != "GET" {
 		http.Error(w, "Invalid request method", http.StatusMethodNotAllowed)
 		return
