@@ -8,7 +8,14 @@ JWT-to-RBAC lets you automatically generate RBAC resources based on JWT token.
 
 For authentication we use [Dex](https://github.com/dexidp/dex) with the LDAP connector. The user in LDAP has group memberships and Dex issues a JWT token containing these memberships. The JWT-to-RBAC project can create `ServiceAccount`, `ClusterRoles` and `ClusterroleBindings` based on JWT tokens. When we create a new `ServiceAccount` K8s automatically generates a `service account token`.
 
-For more additional information and context please read this [post](https://banzaicloud.com/blog/k8s-rbac/).
+For more information and context please read the [Provider agnostic authentication and authorization in Kubernetes](https://banzaicloud.com/blog/k8s-rbac/) post.
+
+JWT-to-RBAC is a core part of [Banzai Cloud Pipeline](https://banzaicloud.com/), a Cloud Native application and devops platform that natively supports multi- and hybrid-cloud deployments with multiple authentication backends. Check out the developer beta:
+<p align="center">
+  <a href="https://beta.banzaicloud.io">
+  <img src="https://camo.githubusercontent.com/a487fb3128bcd1ef9fc1bf97ead8d6d6a442049a/68747470733a2f2f62616e7a6169636c6f75642e636f6d2f696d672f7472795f706970656c696e655f627574746f6e2e737667">
+  </a>
+</p>
 
 ### Requirements:
 
