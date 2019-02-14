@@ -11,11 +11,4 @@ ignored = [
   "github.com/gogo/protobuf",
   "github.com/golang/protobuf",
   "github.com/stretchr/testify",
-
-  "github.com/davecgh/go-spew", # ISC license
-  "github.com/howeyc/gopass", # ISC license
-
-  "bitbucket.org/ww/goautoneg",
-  "github.com/go-openapi/spec",
-  "github.com/inconshreveable/mousetrap"
 ]
