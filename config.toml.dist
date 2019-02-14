@@ -14,6 +14,7 @@ issuerURL = "http://dex/dex"
 
 [rbachandler]
 kubeConfig = ""
+tokenTTL: "24h"
 
 [[rbachandler.customGroups]]
 groupName = "developers"

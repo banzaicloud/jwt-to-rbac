@@ -16,6 +16,7 @@ package tokenapi
 
 import (
 	"encoding/json"
+	"io/ioutil"
 	"net/http"
 
 	"github.com/banzaicloud/jwt-to-rbac/pkg/rbachandler"
@@ -29,6 +30,10 @@ const APIEndPoint = "/tokens/"
 type HTTPController struct {
 	RConf  *rbachandler.Config
 	Logger logur.Logger
+}
+
+type tokenTTL struct {
+	Duration string `json:"duration,omitempty"`
 }
 
 // NewHTTPHandler returns a new HTTP handler for the greeter.
@@ -51,7 +56,21 @@ func (a *HTTPController) handleSAcredential(w http.ResponseWriter, r *http.Reque
 	w.Header().Set("Content-Type", "application/json")
 	if r.Method == "POST" {
 		saName := r.URL.Path[len(APIEndPoint):]
-		secretData, err := rbachandler.CreateSAToken(saName, a.RConf, "5m", a.Logger)
+		body, err := ioutil.ReadAll(r.Body)
+		if err != nil {
+			http.Error(w, "Error reading request body", http.StatusInternalServerError)
+		}
+		ttl := tokenTTL{}
+		err = json.Unmarshal(body, &ttl)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+		duration := ttl.Duration
+		if ttl.Duration == "" {
+			duration = a.RConf.TokenTTL
+		}
+		secretData, err := rbachandler.CreateSAToken(saName, a.RConf, duration, a.Logger)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusNotFound)
 			return

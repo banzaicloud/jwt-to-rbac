@@ -31,7 +31,7 @@ func WatchSATokens(config *Config, logger logur.Logger) {
 		logger.Error(err.Error(), nil)
 	}
 	func() {
-		ticker := time.NewTicker(5 * time.Second)
+		ticker := time.NewTicker(1 * time.Minute)
 		for t := range ticker.C {
 			if err := rbacHandler.evaluateLabeledSecrets(t); err != nil {
 				logger.Error(err.Error(), nil)
