@@ -24,7 +24,12 @@ import (
 	"github.com/goph/logur"
 )
 
+// APIEndPoint for RBAC handling
 const APIEndPoint = "/rbac/"
+
+type jwtToken struct {
+	Token string `json:"token"`
+}
 
 // HTTPController collects the greeting use cases and exposes them as HTTP handlers.
 type HTTPController struct {
@@ -37,9 +42,7 @@ type HTTPController struct {
 func NewHTTPHandler(tconf *tokenhandler.Config, rconf *rbachandler.Config, logger logur.Logger) http.Handler {
 	mux := http.NewServeMux()
 	controller := NewHTTPController(tconf, rconf, logger)
-	mux.HandleFunc(APIEndPoint+"list/", controller.listK8sResources)
-	mux.HandleFunc(APIEndPoint+"remove/", controller.deleteSA)
-	mux.HandleFunc(APIEndPoint, controller.createRBACfromJWT)
+	mux.HandleFunc(APIEndPoint, controller.handeRBACResources)
 
 	return mux
 }
@@ -53,51 +56,40 @@ func NewHTTPController(tconf *tokenhandler.Config, rconf *rbachandler.Config, lo
 	}
 }
 
-func (a *HTTPController) listK8sResources(w http.ResponseWriter, r *http.Request) {
+func (a *HTTPController) handeRBACResources(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
-	if r.Method != "GET" {
-		http.Error(w, "Invalid request method", http.StatusMethodNotAllowed)
-		return
-	}
-	rbacList, err := rbachandler.ListRBACResources(a.RConf, a.Logger)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-	jsonBody, err := json.Marshal(rbacList)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-	w.WriteHeader(http.StatusOK)
-	_, _ = w.Write(jsonBody)
-}
+	switch r.Method {
+	case "GET":
+		rbacList, err := rbachandler.ListRBACResources(a.RConf, a.Logger)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		jsonBody, err := json.Marshal(rbacList)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
 
-// CreateRBACfromJWT converts JWT to K8s RBAC
-func (a *HTTPController) createRBACfromJWT(w http.ResponseWriter, r *http.Request) {
-	type jwtToken struct {
-		Token string `json:"token"`
-	}
-	w.Header().Set("Content-Type", "application/json")
-	if r.Method != "POST" {
-		http.Error(w, "Invalid request method", http.StatusMethodNotAllowed)
-		return
-	}
-	body, err := ioutil.ReadAll(r.Body)
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write(jsonBody)
 
-	if err != nil {
-		http.Error(w, "Error reading request body", http.StatusInternalServerError)
-	}
-	res := jwtToken{}
-	err = json.Unmarshal(body, &res)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
-	}
-	user, err := tokenhandler.Authorize(res.Token, a.TConf)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-	} else {
+	case "POST":
+		body, err := ioutil.ReadAll(r.Body)
+		if err != nil {
+			http.Error(w, "Error reading request body", http.StatusInternalServerError)
+		}
+		res := jwtToken{}
+		err = json.Unmarshal(body, &res)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+		user, err := tokenhandler.Authorize(res.Token, a.TConf)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
 		err = rbachandler.CreateRBAC(user, a.RConf, a.Logger)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -106,20 +98,16 @@ func (a *HTTPController) createRBACfromJWT(w http.ResponseWriter, r *http.Reques
 		b, _ := json.Marshal(user)
 		w.WriteHeader(http.StatusCreated)
 		_, _ = w.Write(b)
-	}
-}
 
-// DeleteSA removes serviceaccount with its bindings
-func (a *HTTPController) deleteSA(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "application/json")
-	if r.Method != "DELETE" {
+	case "DELETE":
+		saName := r.URL.Path[len(APIEndPoint):]
+		if err := rbachandler.DeleteRBAC(saName, a.RConf, a.Logger); err != nil {
+			http.Error(w, err.Error(), http.StatusNotFound)
+			return
+		}
+		w.WriteHeader(http.StatusAccepted)
+
+	default:
 		http.Error(w, "Invalid request method", http.StatusMethodNotAllowed)
-		return
 	}
-	saName := r.URL.Path[len(APIEndPoint+"remove/"):]
-	if err := rbachandler.DeleteRBAC(saName, a.RConf, a.Logger); err != nil {
-		http.Error(w, err.Error(), http.StatusNotFound)
-		return
-	}
-	w.WriteHeader(http.StatusAccepted)
 }

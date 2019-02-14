@@ -22,6 +22,7 @@ import (
 	"github.com/goph/logur"
 )
 
+// APIEndPoint for token handling
 const APIEndPoint = "/tokens/"
 
 // HTTPController collects the greeting use cases and exposes them as HTTP handlers.
