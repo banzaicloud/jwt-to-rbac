@@ -17,7 +17,8 @@ package internal
 import (
 	"net/http"
 
-	"github.com/banzaicloud/jwt-to-rbac/internal/httphandler"
+	"github.com/banzaicloud/jwt-to-rbac/internal/rbacapi"
+	"github.com/banzaicloud/jwt-to-rbac/internal/tokenapi"
 	"github.com/banzaicloud/jwt-to-rbac/pkg/rbachandler"
 	"github.com/banzaicloud/jwt-to-rbac/pkg/tokenhandler"
 	"github.com/goph/logur"
@@ -26,6 +27,7 @@ import (
 // NewApp retunrs HTTPHandler
 func NewApp(tconf *tokenhandler.Config, rconf *rbachandler.Config, logger logur.Logger) http.Handler {
 	mux := http.NewServeMux()
-	mux.Handle("/", httphandler.NewHTTPHandler(tconf, rconf, logger))
+	mux.Handle(rbacapi.APIEndPoint, rbacapi.NewHTTPHandler(tconf, rconf, logger))
+	mux.Handle(tokenapi.APIEndPoint, tokenapi.NewHTTPHandler(rconf, logger))
 	return mux
 }

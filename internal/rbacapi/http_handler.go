@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package httphandler
+package rbacapi
 
 import (
 	"encoding/json"
@@ -23,6 +23,8 @@ import (
 	"github.com/banzaicloud/jwt-to-rbac/pkg/tokenhandler"
 	"github.com/goph/logur"
 )
+
+const APIEndPoint = "/rbac/"
 
 // HTTPController collects the greeting use cases and exposes them as HTTP handlers.
 type HTTPController struct {
@@ -35,10 +37,9 @@ type HTTPController struct {
 func NewHTTPHandler(tconf *tokenhandler.Config, rconf *rbachandler.Config, logger logur.Logger) http.Handler {
 	mux := http.NewServeMux()
 	controller := NewHTTPController(tconf, rconf, logger)
-	mux.HandleFunc("/list", controller.listK8sResources)
-	mux.HandleFunc("/remove/", controller.deleteSA)
-	mux.HandleFunc("/", controller.createRBACfromJWT)
-	mux.HandleFunc("/secret/", controller.handleSAcredential)
+	mux.HandleFunc(APIEndPoint+"list/", controller.listK8sResources)
+	mux.HandleFunc(APIEndPoint+"remove/", controller.deleteSA)
+	mux.HandleFunc(APIEndPoint, controller.createRBACfromJWT)
 
 	return mux
 }
@@ -115,39 +116,10 @@ func (a *HTTPController) deleteSA(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Invalid request method", http.StatusMethodNotAllowed)
 		return
 	}
-	saName := r.URL.Path[len("/remove/"):]
+	saName := r.URL.Path[len(APIEndPoint+"remove/"):]
 	if err := rbachandler.DeleteRBAC(saName, a.RConf, a.Logger); err != nil {
 		http.Error(w, err.Error(), http.StatusNotFound)
 		return
 	}
 	w.WriteHeader(http.StatusAccepted)
-}
-
-func (a *HTTPController) handleSAcredential(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "application/json")
-	if r.Method == "POST" {
-		saName := r.URL.Path[len("/secret/"):]
-		secretData, err := rbachandler.CreateSAToken(saName, a.RConf, "5m", a.Logger)
-		if err != nil {
-			http.Error(w, err.Error(), http.StatusNotFound)
-			return
-		}
-		b, _ := json.Marshal(secretData)
-		w.WriteHeader(http.StatusCreated)
-		_, _ = w.Write(b)
-		return
-	}
-	if r.Method != "GET" {
-		http.Error(w, "Invalid request method", http.StatusMethodNotAllowed)
-		return
-	}
-	saName := r.URL.Path[len("/secret/"):]
-	secretData, err := rbachandler.GetK8sToken(saName, a.RConf, a.Logger)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusNotFound)
-		return
-	}
-	b, _ := json.Marshal(secretData)
-	w.WriteHeader(http.StatusOK)
-	_, _ = w.Write(b)
 }
