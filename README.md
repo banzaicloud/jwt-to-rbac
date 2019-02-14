@@ -136,7 +136,7 @@ Now you can communicate with the jwt-to-rbac app.
 ### 2. POST id_token issued by Dex to jwt-to-rbac API
 ```shell
 curl --request POST \
-  --url http://localhost:5555/ \
+  --url http://localhost:5555/rbac \
   --header 'Content-Type: application/json' \
   --data '{\n	"token": "example.jwt.token"\n}'
 
@@ -159,7 +159,7 @@ The `ServiceAccount`, `ClusterRoles` (if id_token has some defined custom groups
 **Listing the created K8s resources:**
 ```shell
 curl --request GET \
-  --url http://localhost:5555/list \
+  --url http://localhost:5555/rbac \
   --header 'Content-Type: application/json'
 
 #response:
@@ -177,10 +177,10 @@ curl --request GET \
 }
 ```
 
-### 3. GET the K8s token of `ServiceAccount`
+### 3. GET the default K8s token of `ServiceAccount`
 ```shell
 curl --request GET \
-  --url http://localhost:5555/secret/janedoe-example-com \
+  --url http://localhost:5555/tokens/janedoe-example-com \
   --header 'Content-Type: application/json'
 
 # response:
@@ -196,9 +196,29 @@ curl --request GET \
 ]
 ```
 
+### 4. Generate a ServiceAccount token token with TTL
+```shell
+curl --request POST \
+  --url http://localhost:5555/tokens/janedoe-example-com \
+  --header 'Content-Type: application/json'
+  --data '{\n"duration": "12h30m"\n}'
+
+# response:
+[
+    {
+        "name": "janedoe-example-com-token-df3re",
+        "data": {
+            "ca.crt": "example-ca-cer-base64",
+            "namespace": "ZGVmYXVsdA==",
+            "token": "example-k8s-sa-token-with-ttl-base64"
+        }
+    }
+]
+```
+
 Now you have a base64 encoded `service account token`.
 
-### 4. Accessing with ServiceAccount token 
+### 5. Accessing with ServiceAccount token 
 
 You can use `service account token` from command line:
 ```shell

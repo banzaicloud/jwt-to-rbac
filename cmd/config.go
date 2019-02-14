@@ -15,8 +15,11 @@
 package main
 
 import (
+	"fmt"
 	"os"
 	"strings"
+
+	"github.com/spf13/pflag"
 
 	"github.com/banzaicloud/jwt-to-rbac/internal/log"
 	"github.com/banzaicloud/jwt-to-rbac/pkg/rbachandler"
@@ -38,7 +41,18 @@ type Config struct {
 }
 
 // Configure configures some defaults in the Viper instance.
-func Configure(v *viper.Viper) {
+func Configure(v *viper.Viper, p *pflag.FlagSet) {
+	p.Init("jwt-to-rbac", pflag.ExitOnError)
+	pflag.Usage = func() {
+		_, _ = fmt.Fprintln(os.Stderr, "Usage of jwt-to-rbac:")
+		pflag.PrintDefaults()
+	}
+	_ = v.BindPFlags(p)
+	// Log configuration
+	v.SetDefault("log.format", "json")
+	v.SetDefault("log.level", "info")
+	v.SetDefault("log.noColor", true)
+
 	v.AllowEmptyEnv(true)
 	v.SetEnvPrefix("jwttorbac")
 	v.SetConfigName("config")

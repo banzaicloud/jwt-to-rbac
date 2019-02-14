@@ -17,6 +17,7 @@ package rbachandler
 type Config struct {
 	CustomGroups []CustomGroup
 	KubeConfig   string
+	TokenTTL     string
 }
 
 type CustomGroup struct {

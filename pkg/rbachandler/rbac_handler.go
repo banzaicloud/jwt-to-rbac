@@ -17,7 +17,9 @@ package rbachandler
 import (
 	"errors"
 	"fmt"
+	"math/rand"
 	"strings"
+	"time"
 
 	"github.com/banzaicloud/jwt-to-rbac/internal/log"
 	"github.com/banzaicloud/jwt-to-rbac/pkg/tokenhandler"
@@ -118,7 +120,6 @@ func getK8sClientSets(kubeconfig string, logger logur.Logger) (*clientcorev1.Cor
 			return nil, nil, emperror.WrapWith(err, "failed to get kubernetes config", "kubeconfig", kubeconfig)
 		}
 	}
-
 	coreClientSet, err := clientcorev1.NewForConfig(config)
 	if err != nil {
 		return nil, nil, emperror.Wrap(err, "cannot create new core clientSet")
@@ -209,6 +210,9 @@ func (rh *RBACHandler) listServiceAccount() ([]string, error) {
 }
 
 func (rh *RBACHandler) createServiceAccount(sa *serviceAccount) error {
+	if _, err := rh.getAndCheckSA(sa.name); err == nil {
+		return nil
+	}
 	saObj := &apicorev1.ServiceAccount{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "ServiceAccount",
@@ -222,12 +226,16 @@ func (rh *RBACHandler) createServiceAccount(sa *serviceAccount) error {
 	}
 	_, err := rh.coreClientSet.ServiceAccounts("default").Create(saObj)
 	if err != nil {
+
 		return emperror.WrapWith(err, "create serviceaccount failed", "saName", sa)
 	}
 	return nil
 }
 
 func (rh *RBACHandler) createClusterRoleBinding(crb *clusterRoleBinding) error {
+	if err := rh.getAndCheckCRoleBinding(crb.name); err == nil {
+		return nil
+	}
 	var subjects []apirbacv1.Subject
 	for _, ns := range crb.nameSpace {
 		subject := apirbacv1.Subject{
@@ -267,6 +275,9 @@ func (rh *RBACHandler) createClusterRoleBinding(crb *clusterRoleBinding) error {
 }
 
 func (rh *RBACHandler) createClusterRole(cr *clusterRole) error {
+	if err := rh.getAndCheckCRole(cr.name); err == nil {
+		return nil
+	}
 	var rules []apirbacv1.PolicyRule
 	for _, rule := range cr.rules {
 		rule := apirbacv1.PolicyRule{
@@ -286,15 +297,6 @@ func (rh *RBACHandler) createClusterRole(cr *clusterRole) error {
 			Labels: cr.labels,
 		},
 		Rules: rules,
-	}
-	if cRole, err := rh.rbacClientSet.ClusterRoles().Get(cr.name, metav1.GetOptions{}); err == nil {
-		if label, ok := cRole.ObjectMeta.Labels[defautlLabelKey]; !ok || label != defaultLabel[defautlLabelKey] {
-			return emperror.WrapWith(errors.New("label mismatch in clusterrole"),
-				"there is a ClusterRole without required label",
-				defautlLabelKey, defaultLabel[defautlLabelKey],
-				"cluster_role", cr.name)
-		}
-		return nil
 	}
 	_, err := rh.rbacClientSet.ClusterRoles().Create(roleObj)
 	if err != nil {
@@ -430,6 +432,34 @@ func (rh *RBACHandler) getAndCheckSA(saName string) (*apicorev1.ServiceAccount, 
 	return saDetails, nil
 }
 
+func (rh *RBACHandler) getAndCheckCRole(CRName string) error {
+	cRole, err := rh.rbacClientSet.ClusterRoles().Get(CRName, metav1.GetOptions{})
+	if err == nil {
+		if label, ok := cRole.ObjectMeta.Labels[defautlLabelKey]; !ok || label != defaultLabel[defautlLabelKey] {
+			return emperror.WrapWith(errors.New("label mismatch in clusterrole"),
+				"there is a ClusterRole without required label",
+				defautlLabelKey, defaultLabel[defautlLabelKey],
+				"cluster_role", CRName)
+		}
+		return nil
+	}
+	return err
+}
+
+func (rh *RBACHandler) getAndCheckCRoleBinding(CRBindingName string) error {
+	cRoleBind, err := rh.rbacClientSet.ClusterRoleBindings().Get(CRBindingName, metav1.GetOptions{})
+	if err == nil {
+		if label, ok := cRoleBind.ObjectMeta.Labels[defautlLabelKey]; !ok || label != defaultLabel[defautlLabelKey] {
+			return emperror.WrapWith(errors.New("label mismatch in clusterrole"),
+				"there is a ClusterRoleBinding without required label",
+				defautlLabelKey, defaultLabel[defautlLabelKey],
+				"cluster_rolebinding", CRBindingName)
+		}
+		return nil
+	}
+	return err
+}
+
 func (rh *RBACHandler) getSAReference(saName string) ([]metav1.OwnerReference, error) {
 	saDetails, err := rh.getAndCheckSA(saName)
 	if err != nil {
@@ -475,19 +505,29 @@ func GetK8sToken(saName string, config *Config, logger logur.Logger) ([]*SACrede
 	if err != nil {
 		return nil, err
 	}
-	saDetails, err := rbacHandler.getAndCheckSA(saName)
+
+	saCreds, err := rbacHandler.listSACredentials(saName)
+	if err != nil {
+		return nil, err
+	}
+
+	return saCreds, nil
+}
+
+func (rh *RBACHandler) listSACredentials(saName string) ([]*SACredential, error) {
+	saDetails, err := rh.getAndCheckSA(saName)
 	if err != nil {
 		return nil, err
 	}
 	var saCreds []*SACredential
 	for _, secrets := range saDetails.Secrets {
-		data, err := rbacHandler.getToken(secrets.Name)
+		secret, err := rh.getSecret(secrets.Name)
 		if err != nil {
 			return nil, err
 		}
 		saCred := &SACredential{
 			Name: secrets.Name,
-			Data: data,
+			Data: secret.Data,
 		}
 		saCreds = append(saCreds, saCred)
 	}
@@ -495,10 +535,99 @@ func GetK8sToken(saName string, config *Config, logger logur.Logger) ([]*SACrede
 	return saCreds, nil
 }
 
-func (rh *RBACHandler) getToken(name string) (map[string][]byte, error) {
+func (rh *RBACHandler) getSecret(name string) (*apicorev1.Secret, error) {
 	secret, err := rh.coreClientSet.Secrets("default").Get(name, metav1.GetOptions{})
 	if err != nil {
 		return nil, emperror.With(err, "secret", name)
 	}
-	return secret.Data, nil
+	return secret, nil
+}
+
+func calculateDeleteTime(ttl string) (string, error) {
+	dur, err := time.ParseDuration(ttl)
+	if err != nil {
+		return "", emperror.Wrap(err, "ttl parse failed")
+	}
+	return time.Now().Add(dur).Format(time.RFC3339), nil
+}
+
+func (rh *RBACHandler) createSecret(saName string, ttl string) (*apicorev1.Secret, error) {
+	saDetails, err := rh.getAndCheckSA(saName)
+	if err != nil {
+		return nil, err
+	}
+	deleteTime, err := calculateDeleteTime(ttl)
+	if err != nil {
+		return nil, err
+	}
+	secretName := saName + tokenRandString(5)
+	secretObj := &apicorev1.Secret{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       "Secret",
+			APIVersion: "v1",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      secretName,
+			Namespace: saDetails.Namespace,
+			Annotations: map[string]string{
+				"kubernetes.io/service-account.name": saName,
+				"banzaicloud.io/timetolive":          deleteTime,
+			},
+			Labels: defaultLabel,
+		},
+		Type: "kubernetes.io/service-account-token",
+	}
+	secret, err := rh.coreClientSet.Secrets("default").Create(secretObj)
+	if err != nil {
+		return nil, emperror.WrapWith(err, "create secret failed", "secretName", secretName)
+	}
+
+	return secret, nil
+}
+
+// CreateSAToken creates service account token with ttl
+func CreateSAToken(saName string, config *Config, ttl string, logger logur.Logger) (*SACredential, error) {
+	rbacHandler, err := NewRBACHandler(config.KubeConfig, logger)
+	if err != nil {
+		return nil, err
+	}
+	secret, err := rbacHandler.createSecret(saName, ttl)
+	if err != nil {
+		return nil, err
+	}
+	secretName := secret.GetName()
+	secretData, err := func() (map[string][]byte, error) {
+		timeout := time.After(5 * time.Second)
+		ticker := time.NewTicker(500 * time.Millisecond)
+		for {
+			select {
+			case <-timeout:
+				return nil, emperror.With(errors.New("timeout getting secret"), "secret_name", secretName)
+			case <-ticker.C:
+				secret, err := rbacHandler.getSecret(secretName)
+				if err != nil {
+					return nil, err
+				}
+				if secret.Data != nil {
+					return secret.Data, nil
+				}
+			}
+		}
+	}()
+	if err != nil {
+		return nil, err
+	}
+
+	return &SACredential{Name: secretName, Data: secretData}, nil
+}
+
+func tokenRandString(n int) string {
+	letterRunes := []rune("0123456789abcdefghijklmnopqrstuvwxyz")
+	seededRand := rand.New(rand.NewSource(time.Now().UnixNano()))
+	b := make([]rune, n)
+	l := len(letterRunes)
+	for i := range b {
+		b[i] = letterRunes[seededRand.Intn(l)]
+	}
+	return "-token-" + string(b)
 }

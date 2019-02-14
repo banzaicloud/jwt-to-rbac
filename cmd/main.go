@@ -15,18 +15,35 @@
 package main
 
 import (
+	"fmt"
 	"net/http"
 	"os"
 
 	"github.com/banzaicloud/jwt-to-rbac/internal"
 	"github.com/banzaicloud/jwt-to-rbac/internal/log"
+	"github.com/banzaicloud/jwt-to-rbac/pkg/rbachandler"
 	"github.com/goph/emperror"
 	"github.com/pkg/errors"
+	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
 )
 
+// nolint: gochecknoinits
+func init() {
+	pflag.Bool("version", false, "Show version information")
+	pflag.Bool("dump-config", false, "Dump configuration to the console (and exit)")
+}
+
 func main() {
-	Configure(viper.GetViper())
+	Configure(viper.GetViper(), pflag.CommandLine)
+
+	pflag.Parse()
+
+	if viper.GetBool("version") {
+		fmt.Printf("%s version %s (%s) built on %s\n", "jwt-to-rbac", Version, CommitHash, BuildDate)
+
+		os.Exit(0)
+	}
 
 	err := viper.ReadInConfig()
 	_, configFileNotFound := err.(viper.ConfigFileNotFoundError)
@@ -37,6 +54,12 @@ func main() {
 	var config Config
 	err = viper.Unmarshal(&config)
 	emperror.Panic(errors.Wrap(err, "failed to unmarshal configuration"))
+
+	if viper.GetBool("dump-config") {
+		fmt.Printf("%+v\n", config)
+
+		os.Exit(0)
+	}
 
 	// Create logger (first thing after configuration loading)
 	logger := log.NewLogger(config.Log)
@@ -52,10 +75,9 @@ func main() {
 		"ClientID":   config.Tokenhandler.Dex.ClientID,
 		"IssuerURL":  config.Tokenhandler.Dex.IssuerURL,
 		"ServerPort": config.App.Addr,
-		"KubeConfig": config.Rbachandler.KubeConfig,
-		"Version":    Version,
-		"CommitHash": CommitHash,
-		"BuildDate":  BuildDate})
+		"KubeConfig": config.Rbachandler.KubeConfig})
+
+	go rbachandler.WatchSATokens(&config.Rbachandler, logger)
 
 	mux := internal.NewApp(&config.Tokenhandler, &config.Rbachandler, logger)
 	err = http.ListenAndServe(config.App.Addr, mux)
