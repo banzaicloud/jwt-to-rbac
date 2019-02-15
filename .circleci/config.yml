@@ -50,7 +50,7 @@ jobs:
       
       - run:
           name: Install license checker
-          command: curl https://raw.githubusercontent.com/goph/licensei/master/install.sh | bash -s v0.1.0
+          command: make bin/licensei
 
       - restore_cache:
           keys:
