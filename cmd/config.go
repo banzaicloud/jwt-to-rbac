@@ -52,6 +52,7 @@ func Configure(v *viper.Viper, p *pflag.FlagSet) {
 	v.SetDefault("log.format", "json")
 	v.SetDefault("log.level", "info")
 	v.SetDefault("log.noColor", true)
+	v.SetDefault("rbachandler.tokenttl", "24h")
 
 	v.AllowEmptyEnv(true)
 	v.SetEnvPrefix("jwttorbac")
