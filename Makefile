@@ -13,6 +13,7 @@ COMMIT_HASH ?= $(shell git rev-parse --short HEAD 2>/dev/null)
 BUILD_DATE ?= $(shell date +%FT%T%z)
 LDFLAGS += -X main.Version=${VERSION} -X main.CommitHash=${COMMIT_HASH} -X main.BuildDate=${BUILD_DATE}
 export CGO_ENABLED ?= 0
+export GO111MODULE = on
 ifeq (${VERBOSE}, 1)
 	GOARGS += -v
 endif
@@ -22,7 +23,7 @@ DOCKER_TAG ?= ${VERSION}
 
 # Dependency versions
 GOLANGCI_VERSION = 1.12.3
-LICENSEI_VERSION = 0.0.7
+LICENSEI_VERSION = 0.1.0
 GOTESTSUM_VERSION = 0.3.2
 
 GOLANG_VERSION = 1.11.4
@@ -43,7 +44,7 @@ endif
 
 	@$(eval GENERATED_BINARY_NAME = ${BINARY_NAME})
 	@$(if $(strip ${BINARY_NAME_SUFFIX}),$(eval GENERATED_BINARY_NAME = ${BINARY_NAME}-$(subst $(eval) ,-,$(strip ${BINARY_NAME_SUFFIX}))),)
-	GO111MODULE=on go build ${GOARGS} -o ${BUILD_DIR}/${GENERATED_BINARY_NAME} ${BUILD_PACKAGE}
+	go build ${GOARGS} -o ${BUILD_DIR}/${GENERATED_BINARY_NAME} ${BUILD_PACKAGE}
 
 .PHONY: build-release
 build-release: LDFLAGS += -w
@@ -91,7 +92,7 @@ license-cache: bin/licensei ## Generate license cache
 .PHONY: test
 test: GOARGS += -tags "${GOTAGS}"
 test: ## Run all tests
-	GO111MODULE=on go test ${GOARGS} ./...
+	go test ${GOARGS} ./...
 
 bin/golangci-lint: bin/golangci-lint-${GOLANGCI_VERSION}
 	@ln -sf golangci-lint-${GOLANGCI_VERSION} bin/golangci-lint

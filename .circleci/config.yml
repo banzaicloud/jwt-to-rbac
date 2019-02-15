@@ -48,26 +48,26 @@ jobs:
           paths:
             - "/go/pkg/mod"
       
-      # - run:
-      #     name: Install license checker
-      #     command: curl https://raw.githubusercontent.com/goph/licensei/master/install.sh | bash -s v0.0.7
+      - run:
+          name: Install license checker
+          command: curl https://raw.githubusercontent.com/goph/licensei/master/install.sh | bash -s v0.1.0
 
-      # - restore_cache:
-      #     keys:
-      #     - licensei-v2-{{ .Branch }}-{{ checksum "go.sum" }}
+      - restore_cache:
+          keys:
+          - licensei-v2-{{ .Branch }}-{{ checksum "go.sum" }}
 
-      # - run:
-      #     name: Download license information for dependencies
-      #     command: make license-cache
+      - run:
+          name: Download license information for dependencies
+          command: make license-cache
 
-      # - save_cache:
-      #     key: licensei-v2-{{ .Branch }}-{{ checksum "go.sum" }}
-      #     paths:
-      #       - .licensei.cache
+      - save_cache:
+          key: licensei-v2-{{ .Branch }}-{{ checksum "go.sum" }}
+          paths:
+            - .licensei.cache
 
-      # - run:
-      #     name: Check dependency licenses
-      #     command: make license-check
+      - run:
+          name: Check dependency licenses
+          command: make license-check
 
       - run:
           name: Setup minikube
