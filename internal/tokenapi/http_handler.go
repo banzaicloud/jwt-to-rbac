@@ -54,7 +54,8 @@ func NewHTTPController(rconf *rbachandler.Config, logger logur.Logger) *HTTPCont
 
 func (a *HTTPController) handleSAcredential(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
-	if r.Method == "POST" {
+	switch r.Method {
+	case "POST":
 		saName := r.URL.Path[len(APIEndPoint):]
 		body, err := ioutil.ReadAll(r.Body)
 		if err != nil {
@@ -78,19 +79,20 @@ func (a *HTTPController) handleSAcredential(w http.ResponseWriter, r *http.Reque
 		b, _ := json.Marshal(secretData)
 		w.WriteHeader(http.StatusCreated)
 		_, _ = w.Write(b)
-		return
-	}
-	if r.Method != "GET" {
+
+	case "GET":
+		saName := r.URL.Path[len(APIEndPoint):]
+		secretData, err := rbachandler.GetK8sToken(saName, a.RConf, a.Logger)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusNotFound)
+			return
+		}
+		b, _ := json.Marshal(secretData)
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write(b)
+
+	default:
 		http.Error(w, "Invalid request method", http.StatusMethodNotAllowed)
 		return
 	}
-	saName := r.URL.Path[len(APIEndPoint):]
-	secretData, err := rbachandler.GetK8sToken(saName, a.RConf, a.Logger)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusNotFound)
-		return
-	}
-	b, _ := json.Marshal(secretData)
-	w.WriteHeader(http.StatusOK)
-	_, _ = w.Write(b)
 }
