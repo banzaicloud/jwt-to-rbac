@@ -38,7 +38,7 @@ The whole process is broken down to two main parts:
 2. Authentication App redirects user to Dex with an OAuth2 request.
 3. Dex determines user's identity.
 4. Dex redirects user to Authentication App with a code.
-5. Authentication App exchanges code with Dex for an id_token.
+5. Authentication App exchanges code with Dex for an ID token.
 
 **jwt-to-rbac Flow:**
 
@@ -51,7 +51,7 @@ The whole process is broken down to two main parts:
 7. Authentication App sends back the service account token to User
 8. User authenticate on K8s using `service account token`
 
-**The id_token issued by Dex has a following content:**
+**The ID token issued by Dex has a following content:**
 ```json
 {
   "iss": "http://dex/dex",
@@ -133,7 +133,7 @@ kubectl port-forward svc/jwt-to-rbac 5555
 
 Now you can communicate with the jwt-to-rbac app.
 
-### 2. POST id_token issued by Dex to jwt-to-rbac API
+### 2. POST ID token issued by Dex to jwt-to-rbac API
 ```shell
 curl --request POST \
   --url http://localhost:5555/rbac \
@@ -154,7 +154,7 @@ curl --request POST \
 }
 ```
 
-The `ServiceAccount`, `ClusterRoles` (if id_token has some defined custom groups we discussed) and `ClusterRoleBindings` are created.
+The `ServiceAccount`, `ClusterRoles` (if ID token has some defined custom groups we discussed) and `ClusterRoleBindings` are created.
 
 **Listing the created K8s resources:**
 ```shell
@@ -196,7 +196,7 @@ curl --request GET \
 ]
 ```
 
-### 4. Generate a ServiceAccount token token with TTL
+### 4. Generate a ServiceAccount token with TTL
 ```shell
 curl --request POST \
   --url http://localhost:5555/tokens/janedoe-example-com \
