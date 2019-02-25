@@ -336,18 +336,40 @@ func generateClusterRole(group string, config *Config) (clusterRole, error) {
 	return cRole, nil
 }
 
+func githubRoleParser(groups []string, org string) []string {
+	var groupList []string
+	for _, group := range groups {
+		if strings.Contains(group, ":") {
+			orgGroup := strings.Split(group, ":")
+			if orgGroup[0] == org {
+				groupList = append(groupList, orgGroup[1])
+				continue
+			}
+			groupList = append(groupList, fmt.Sprintf("%s-%s", orgGroup[0], orgGroup[1]))
+			continue
+		}
+	}
+	return groupList
+}
+
 func generateRbacResources(user *tokenhandler.User, config *Config, nameSpaces []string, logger logur.Logger) (*rbacResources, error) {
 	var saName string
-	if user.FederatedClaims.ConnectorID == "github" {
+	var groupList []string
+	switch user.FederatedClaims.ConnectorID {
+	case "github":
 		saName = user.FederatedClaims.UserID
-	} else if user.FederatedClaims.ConnectorID == "ldap" || user.FederatedClaims.ConnectorID == "local" {
+		groupList = githubRoleParser(user.Groups, config.GithubOrg)
+	case "ldap", "local":
 		r := strings.NewReplacer("@", "-", ".", "-")
 		saName = r.Replace(user.Email)
+		groupList = user.Groups
+	default:
+		return nil, emperror.With(errors.New("connector is not implemented yet"), "ConnectorID", user.FederatedClaims.ConnectorID)
 	}
 
 	var clusterRoles []clusterRole
 	var clusterRoleBindings []clusterRoleBinding
-	for _, group := range user.Groups {
+	for _, group := range groupList {
 		var roleName string
 		switch group {
 		case "cluster-admin", "admin", "edit", "view":

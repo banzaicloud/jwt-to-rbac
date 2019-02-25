@@ -15,9 +15,29 @@ issuerURL = "http://dex/dex"
 [rbachandler]
 kubeConfig = ""
 tokenTTL: "24h"
+githubOrg: "github_organization"
 
 [[rbachandler.customGroups]]
 groupName = "developers"
+
+[[rbachandler.customGroups.customRules]]
+verbs = [
+  "get",
+  "list"
+]
+resources = [
+  "deployments",
+  "replicasets",
+  "pods"
+]
+apiGroups = [
+  "",
+  "extensions",
+  "apps"
+]
+
+[[rbachandler.customGroups]]
+groupName = "githuborg-team"
 
 [[rbachandler.customGroups.customRules]]
 verbs = [
