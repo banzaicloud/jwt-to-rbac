@@ -31,9 +31,9 @@ type FederatedClaims struct {
 
 // User impelements generateServiceAccount
 type User struct {
-	Email            string
-	Groups           []string
-	FederatedClaimas FederatedClaims
+	Email           string
+	Groups          []string
+	FederatedClaims FederatedClaims
 }
 
 func initProvider(config *Config) (*oidc.IDTokenVerifier, error) {

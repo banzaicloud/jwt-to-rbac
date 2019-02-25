@@ -338,9 +338,9 @@ func generateClusterRole(group string, config *Config) (clusterRole, error) {
 
 func generateRbacResources(user *tokenhandler.User, config *Config, nameSpaces []string, logger logur.Logger) (*rbacResources, error) {
 	var saName string
-	if user.FederatedClaimas.ConnectorID == "github" {
-		saName = user.FederatedClaimas.UserID
-	} else if user.FederatedClaimas.ConnectorID == "ldap" || user.FederatedClaimas.ConnectorID == "local" {
+	if user.FederatedClaims.ConnectorID == "github" {
+		saName = user.FederatedClaims.UserID
+	} else if user.FederatedClaims.ConnectorID == "ldap" || user.FederatedClaims.ConnectorID == "local" {
 		r := strings.NewReplacer("@", "-", ".", "-")
 		saName = r.Replace(user.Email)
 	}
