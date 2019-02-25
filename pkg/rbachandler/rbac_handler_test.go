@@ -69,9 +69,9 @@ func TestGenerateRbacResources(t *testing.T) {
 		UserID:      "cn=jane,ou=People,dc=example,dc=org",
 	}
 	user := &tokenhandler.User{
-		Email:            "janedoe@example.com",
-		Groups:           groups,
-		FederatedClaimas: federatedClaims,
+		Email:           "janedoe@example.com",
+		Groups:          groups,
+		FederatedClaims: federatedClaims,
 	}
 	testRbacResources, _ := generateRbacResources(user, createFakeConfig("developers"), []string{"default"}, logger)
 	roleSuccess := assert.Equal(len(testRbacResources.clusterRoles), 1)

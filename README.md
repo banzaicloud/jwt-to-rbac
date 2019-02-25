@@ -147,7 +147,7 @@ curl --request POST \
         "admins",
         "developers"
     ],
-    "FederatedClaimas": {
+    "FederatedClaims": {
         "connector_id": "ldap",
         "user_id": "cn=jane,ou=People,dc=example,dc=org"
     }
