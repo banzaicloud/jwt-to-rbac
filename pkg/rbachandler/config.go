@@ -18,6 +18,7 @@ type Config struct {
 	CustomGroups []CustomGroup
 	KubeConfig   string
 	TokenTTL     string
+	GithubOrg    string
 }
 
 type CustomGroup struct {

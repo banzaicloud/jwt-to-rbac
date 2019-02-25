@@ -111,6 +111,102 @@ apiGroups = [
 ]
 ```
 
+### define github custom roles in config
+
+```toml
+[[rbachandler.customGroups]]
+groupName = "githubOrg-githubTeam"
+[[rbachandler.customGroups.customRules]]
+verbs = [
+  "get",
+  "list"
+]
+resources = [
+  "deployments",
+  "replicasets",
+  "pods"
+]
+apiGroups = [
+  "",
+  "extensions",
+  "apps"
+]
+```
+
+### or specify github organization as default org
+
+```toml
+[rbachandler]
+githubOrg = "github_organization"
+[[rbachandler.customGroups]]
+groupName = "githubTeam"
+[[rbachandler.customGroups.customRules]]
+verbs = [
+  "get",
+  "list"
+]
+resources = [
+  "deployments",
+  "replicasets",
+  "pods"
+]
+apiGroups = [
+  "",
+  "extensions",
+  "apps"
+]
+```
+
+### Example configuration in yaml using default github org
+**issued jwt:**
+```json
+{
+  "iss": "http://dex/dex",
+  "sub": "xxxxxxxxxxxxxxxxxxxxx",
+  "aud": "example-app",
+  "exp": 1551179050,
+  "iat": 1551092650,
+  "at_hash": "xxxxxxxxxxxxxxxxxxx",
+  "email": "p.balogh.sa@gmail.com",
+  "email_verified": true,
+  "groups": [
+    "pokeorg",
+    "pokeorg:admin",
+    "pokeorg:developer"
+  ],
+  "name": "Peter Balogh",
+  "federated_claims": {
+    "connector_id": "github",
+    "user_id": "13311234"
+  }
+}
+```
+**example config:**
+```yaml
+app:
+  addr: ":5555"
+
+log:
+  level: "4"
+  format: "json"
+  noColor: true
+
+tokenhandler:
+  dex:
+    clientID: example-app
+    issuerURL: "http://dex/dex"
+
+rbachandler:
+  githubOrg: "pokeorg"
+  customGroups:
+  - groupName: developer
+    customRules:
+    - verbs: [ "get", "list" ]
+      resources: [ "deployments", "replicasets", "pods" ]
+      apiGroups: [ "", "extensions", "apps" ]
+  kubeConfig: "/Users/poke/.kube/config"
+```
+
 So to conclude on the open source [JWT-to-RBAC](https://github.com/banzaicloud/jwt-to-rbac) project - follow these stpes if you would like to try it or check it out already in action by subscribing to our free developer beta at https://beta.banzaicloud.io/.
 
 ### 1. Deploy jwt-to-rbac to Kubernetes

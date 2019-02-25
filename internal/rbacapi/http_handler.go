@@ -42,7 +42,7 @@ type HTTPController struct {
 func NewHTTPHandler(tconf *tokenhandler.Config, rconf *rbachandler.Config, logger logur.Logger) http.Handler {
 	mux := http.NewServeMux()
 	controller := NewHTTPController(tconf, rconf, logger)
-	mux.HandleFunc(APIEndPoint, controller.handeRBACResources)
+	mux.HandleFunc(APIEndPoint, controller.handleRBACResources)
 
 	return mux
 }
@@ -56,7 +56,7 @@ func NewHTTPController(tconf *tokenhandler.Config, rconf *rbachandler.Config, lo
 	}
 }
 
-func (a *HTTPController) handeRBACResources(w http.ResponseWriter, r *http.Request) {
+func (a *HTTPController) handleRBACResources(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	switch r.Method {
 	case "GET":

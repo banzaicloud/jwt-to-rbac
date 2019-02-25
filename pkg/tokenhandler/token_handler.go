@@ -72,5 +72,8 @@ func Authorize(bearerToken string, config *Config) (*User, error) {
 	if !claims.Verified {
 		return nil, emperror.With(errors.New("email in returned claims was not verified"), "claims.Email", claims.Email)
 	}
+	if claims.FederatedClaims.ConnectorID == "" || claims.FederatedClaims.UserID == "" {
+		return nil, emperror.Wrap(errors.New("jwt doesn't contain required federatedClaims"), "missing federatedClaims")
+	}
 	return &User{claims.Email, claims.Groups, claims.FederatedClaims}, nil
 }
