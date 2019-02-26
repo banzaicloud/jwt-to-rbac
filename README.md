@@ -207,6 +207,17 @@ rbachandler:
   kubeConfig: "/Users/poke/.kube/config"
 ```
 
+### Define custom CA cert or set insecure connection
+```toml
+[tokenhandler]
+caCertPath = "/path/to/tls.crt"
+insecure = false
+```
+**Setting insecure conection in command line:**
+```shel
+jwt-to-rbac --tokenhandler.insecure=true
+```
+
 So to conclude on the open source [JWT-to-RBAC](https://github.com/banzaicloud/jwt-to-rbac) project - follow these stpes if you would like to try it or check it out already in action by subscribing to our free developer beta at https://beta.banzaicloud.io/.
 
 ### 1. Deploy jwt-to-rbac to Kubernetes

@@ -19,4 +19,6 @@ type Config struct {
 		ClientID  string
 		IssuerURL string
 	}
+	CaCertPath string
+	Insecure   bool
 }

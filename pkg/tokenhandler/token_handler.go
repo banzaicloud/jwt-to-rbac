@@ -16,7 +16,10 @@ package tokenhandler
 
 import (
 	"context"
+	"crypto/tls"
+	"crypto/x509"
 	"errors"
+	"io/ioutil"
 	"net/http"
 
 	oidc "github.com/coreos/go-oidc"
@@ -36,9 +39,35 @@ type User struct {
 	FederatedClaims FederatedClaims
 }
 
+func appendCACertPoll(config *Config) (*http.Client, error) {
+	rootCAs, _ := x509.SystemCertPool()
+	if rootCAs == nil {
+		rootCAs = x509.NewCertPool()
+	}
+	if config.CaCertPath != "" {
+		certs, err := ioutil.ReadFile(config.CaCertPath)
+		if err != nil {
+			return nil, emperror.WrapWith(err, "Failed to append %q to RootCAs: %v", "cacertpath", config.CaCertPath)
+		}
+		_ = rootCAs.AppendCertsFromPEM(certs)
+	}
+
+	// Trust the augmented cert pool in our client
+	httpConf := &tls.Config{
+		InsecureSkipVerify: config.Insecure,
+		RootCAs:            rootCAs,
+	}
+	tr := &http.Transport{TLSClientConfig: httpConf}
+	return &http.Client{Transport: tr}, nil
+}
+
 func initProvider(config *Config) (*oidc.IDTokenVerifier, error) {
 	// Initialize a provider by specifying dex's issuer URL.
-	ctx := oidc.ClientContext(context.Background(), http.DefaultClient)
+	httpClient, err := appendCACertPoll(config)
+	if err != nil {
+		return nil, err
+	}
+	ctx := oidc.ClientContext(context.Background(), httpClient)
 	provider, err := oidc.NewProvider(ctx, config.Dex.IssuerURL)
 	if err != nil {
 		return nil, emperror.WrapWith(err, "provider init failed", "issuerURL", config.Dex.IssuerURL)

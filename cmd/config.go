@@ -53,6 +53,7 @@ func Configure(v *viper.Viper, p *pflag.FlagSet) {
 	v.SetDefault("log.level", "info")
 	v.SetDefault("log.noColor", true)
 	v.SetDefault("rbachandler.tokenttl", "24h")
+	v.SetDefault("tokenhandler.insecure", false)
 
 	v.AllowEmptyEnv(true)
 	v.SetEnvPrefix("jwttorbac")

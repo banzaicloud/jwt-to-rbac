@@ -32,6 +32,7 @@ import (
 func init() {
 	pflag.Bool("version", false, "Show version information")
 	pflag.Bool("dump-config", false, "Dump configuration to the console (and exit)")
+	pflag.Bool("tokenhandler.insecure", false, "Use insecure connection")
 }
 
 func main() {
