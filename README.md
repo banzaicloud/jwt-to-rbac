@@ -6,7 +6,7 @@ JWT-to-RBAC lets you automatically generate RBAC resources based on JWT token.
 
 ### Context 
 
-For authentication we use [Dex](https://github.com/dexidp/dex) with the LDAP connector. The user in LDAP has group memberships and Dex issues a JWT token containing these memberships. The JWT-to-RBAC project can create `ServiceAccount`, `ClusterRoles` and `ClusterroleBindings` based on JWT tokens. When we create a new `ServiceAccount` K8s automatically generates a `service account token`.
+For authentication we use [Dex](https://github.com/dexidp/dex) with the LDAP and github connectors. The users in LDAP have group memberships, github users can member of a team in organization and Dex issues a JWT token containing these memberships. The JWT-to-RBAC project can create `ServiceAccount`, `ClusterRoles` and `ClusterroleBindings` based on JWT tokens. When we create a new `ServiceAccount` K8s automatically generates a `service account token`.
 
 For more information and context please read the [Provider agnostic authentication and authorization in Kubernetes](https://banzaicloud.com/blog/k8s-rbac/) post.
 
@@ -22,7 +22,7 @@ JWT-to-RBAC is a core part of [Banzai Cloud Pipeline](https://banzaicloud.com/),
 There are some pre-requirements to kick this of for your own testing.
 
 * Configured Dex server which issues JWT tokens. If you want to issue tokens with Dex you have to configure it with LDAP connector. You can use the Banzai Cloud [Dex chart](https://github.com/banzaicloud/banzai-charts/tree/master/dex). 
-* Configured LDAP server - you can use the [openldap](https://github.com/osixia/docker-openldap) Docker image
+* Github account assigned for an organization or configured LDAP server - you can use the [openldap](https://github.com/osixia/docker-openldap) Docker image
 * Authentication application which uses Dex as an OpenID connector (in our case is [Pipeline](https://github.com/banzaicloud/pipeline).
 
 > Dex acts as a shim between a client app and the upstream identity provider. The client only needs to understand OpenID Connect to query Dex.
