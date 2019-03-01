@@ -6,7 +6,7 @@ JWT-to-RBAC lets you automatically generate RBAC resources based on JWT token.
 
 ### Context 
 
-For authentication we use [Dex](https://github.com/dexidp/dex) with the LDAP and GitHub connectors. The users in LDAP have group memberships, GitHub users can member of a team in organization and Dex issues a JWT token containing these memberships. The JWT-to-RBAC project can create `ServiceAccount`, `ClusterRoles` and `ClusterroleBindings` based on JWT tokens. When we create a new `ServiceAccount` K8s automatically generates a `service account token`.
+For authentication we use [Dex](https://github.com/dexidp/dex) with the LDAP and GitHub connectors. The users in LDAP have group memberships, GitHub users can be members of a team in an organization and Dex issues a JWT token containing these memberships. The JWT-to-RBAC project can create `ServiceAccount`, `ClusterRoles` and `ClusterroleBindings` based on JWT tokens. When we create a new `ServiceAccount` K8s automatically generates a `service account token`.
 
 For more information and context please read the [Provider agnostic authentication and authorization in Kubernetes](https://banzaicloud.com/blog/k8s-rbac/) post.
 
