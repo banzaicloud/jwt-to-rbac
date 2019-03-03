@@ -1,4 +1,7 @@
 [![CircleCI](https://circleci.com/gh/banzaicloud/jwt-to-rbac/tree/master.svg?style=shield)](https://circleci.com/gh/banzaicloud/jwt-to-rbac/tree/master)
+[![Go Report Card](https://goreportcard.com/badge/github.com/banzaicloud/jwt-to-rbac)](https://goreportcard.com/report/github.com/banzaicloud/jwt-to-rbac)
+[![Docker Automated build](https://img.shields.io/docker/automated/banzaicloud/jwt-to-rbac.svg)](https://hub.docker.com/r/banzaicloud/jwt-to-rbac)
+
 
 ## JWT-to-RBAC
 
