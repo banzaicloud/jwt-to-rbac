@@ -7,6 +7,7 @@
 /.env
 /.env.test
 /vendor/
+.licensei.cache
 
 # IDE integration
 /.vscode/*
