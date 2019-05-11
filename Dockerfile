@@ -1,28 +1,21 @@
-FROM golang:1.11-alpine AS builder
+FROM golang:1.12-alpine AS builder
 
-RUN apk add --update --no-cache ca-certificates make git curl mercurial
+RUN apk add --update --no-cache ca-certificates git
+RUN apk add build-base
 
-ARG PACKAGE=github.com/banzaicloud/jwt-to-rbac
+RUN mkdir -p /build
+WORKDIR /build
 
-RUN mkdir -p /go/src/${PACKAGE}
-WORKDIR /go/src/${PACKAGE}
+COPY go.* /build/
+RUN go mod download
+COPY . /build
+RUN go install ./cmd 
 
-COPY . /go/src/${PACKAGE}
-RUN BUILD_DIR=/tmp make build-release
+FROM alpine:3.9
 
-FROM alpine:3.7
-
-RUN apk add --update libcap && rm -rf /var/cache/apk/*
-
-COPY --from=builder /tmp/jwt-to-rbac /usr/local/bin/jwt-to-rbac
+COPY --from=builder /go/bin/cmd /usr/local/bin/jwt-to-rbac
 COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
 
-RUN mkdir -p /etc/jwt-to-rbac
-# COPY config/config.yaml /etc/jwt-to-rbac/config.yaml
-# ENV CONFIG_DIR=/etc/jwt-to-rbac
-
-RUN adduser -D jwt-to-rbac
-RUN setcap CAP_NET_BIND_SERVICE=+eip /usr/local/bin/jwt-to-rbac
-USER jwt-to-rbac
+USER 65534:65534
 
 ENTRYPOINT ["/usr/local/bin/jwt-to-rbac"]

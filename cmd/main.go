@@ -15,14 +15,20 @@
 package main
 
 import (
+	"context"
 	"fmt"
+	"net"
 	"net/http"
 	"os"
+	"os/signal"
+	"syscall"
+	"time"
 
 	"github.com/banzaicloud/jwt-to-rbac/internal"
 	"github.com/banzaicloud/jwt-to-rbac/internal/log"
 	"github.com/banzaicloud/jwt-to-rbac/pkg/rbachandler"
 	"github.com/goph/emperror"
+	"github.com/oklog/run"
 	"github.com/pkg/errors"
 	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
@@ -78,12 +84,74 @@ func main() {
 		"ServerPort": config.App.Addr,
 		"KubeConfig": config.Rbachandler.KubeConfig})
 
-	go rbachandler.WatchSATokens(&config.Rbachandler, logger)
+	var g run.Group
+	{
+		ln, _ := net.Listen("tcp", config.App.Addr)
+		httpServer := &http.Server{Handler: internal.NewApp(&config.Tokenhandler, &config.Rbachandler, logger)}
 
-	mux := internal.NewApp(&config.Tokenhandler, &config.Rbachandler, logger)
-	err = http.ListenAndServe(config.App.Addr, mux)
-	if err != nil {
-		logger.Error(err.Error(), nil)
-		os.Exit(1)
+		g.Add(
+			func() error {
+				logger.Info("Starting the HTTP server.")
+				return httpServer.Serve(ln)
+			},
+			func(e error) {
+				logger.Info("shutting server down")
+
+				ctx := context.Background()
+				var cancel context.CancelFunc
+				ctx, cancel = context.WithTimeout(ctx, 15*time.Second)
+				defer cancel()
+
+				err := httpServer.Shutdown(ctx)
+				logger.Error("stop HTTP server due to error", map[string]interface{}{
+					"error": err.Error(),
+				})
+
+				_ = httpServer.Close()
+			},
+		)
 	}
+
+	{
+		var (
+			cancelInterrupt = make(chan struct{})
+			ch              = make(chan os.Signal, 2)
+		)
+		defer close(ch)
+
+		g.Add(
+			func() error {
+				signal.Notify(ch, syscall.SIGINT, syscall.SIGTERM)
+
+				select {
+				case sig := <-ch:
+					logger.Info("captured signal", map[string]interface{}{"signal": sig})
+				case <-cancelInterrupt:
+				}
+
+				return nil
+			},
+			func(e error) {
+				close(cancelInterrupt)
+				signal.Stop(ch)
+			},
+		)
+	}
+
+	{
+		g.Add(
+			func() error {
+				logger.Info("Starting watching SA tokens.")
+				return rbachandler.WatchSATokens(&config.Rbachandler, logger)
+			},
+			func(error) {
+				logger.Error("unable to run the manager", map[string]interface{}{
+					"error": err.Error(),
+				})
+				os.Exit(1)
+			},
+		)
+	}
+
+	g.Run()
 }
