@@ -24,12 +24,12 @@ jobs:
       - restore_cache:
           name: Restore build dependencies
           keys:
-          - build-deps-v2-{{ .Branch }}-{{ checksum "Makefile" }}
+          - build-deps-v1-{{ .Branch }}-{{ checksum "Makefile" }}
 
       - restore_cache:
           name: Restore dependencies
           keys:
-            - go-mod-v2-{{ .Branch }}-{{ checksum "go.sum" }}
+            - go-mod-v1-{{ .Branch }}-{{ checksum "go.sum" }}
 
       - run:
           name: Setup golang
@@ -43,7 +43,7 @@ jobs:
 
       - save_cache:
           name: Save dependencies
-          key: go-mod-v2-{{ .Branch }}-{{ checksum "go.sum" }}
+          key: go-mod-v1-{{ .Branch }}-{{ checksum "go.sum" }}
           paths:
             - "/go/pkg/mod"
       
@@ -53,14 +53,14 @@ jobs:
 
       - restore_cache:
           keys:
-          - licensei-v2-{{ .Branch }}-{{ checksum "go.sum" }}
+          - licensei-v1-{{ .Branch }}-{{ checksum "go.sum" }}
 
       - run:
           name: Download license information for dependencies
           command: make license-cache
 
       - save_cache:
-          key: licensei-v2-{{ .Branch }}-{{ checksum "go.sum" }}
+          key: licensei-v1-{{ .Branch }}-{{ checksum "go.sum" }}
           paths:
             - .licensei.cache
 
