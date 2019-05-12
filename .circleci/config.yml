@@ -1,5 +1,4 @@
 # Golang CircleCI 2.0 configuration file
-#
 version: 2
 jobs:
   check:
