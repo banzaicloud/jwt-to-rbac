@@ -9,5 +9,4 @@ approved = [
 ignored = [
   "github.com/gogo/protobuf",
   "sigs.k8s.io/yaml",
-  "github.com/oklog/run",
 ]
