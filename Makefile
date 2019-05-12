@@ -11,9 +11,8 @@ BUILD_PACKAGE = ${PACKAGE}/cmd
 VERSION ?= $(shell git rev-parse --abbrev-ref HEAD)
 COMMIT_HASH ?= $(shell git rev-parse --short HEAD 2>/dev/null)
 BUILD_DATE ?= $(shell date +%FT%T%z)
-LDFLAGS += -X main.Version=${VERSION} -X main.CommitHash=${COMMIT_HASH} -X main.BuildDate=${BUILD_DATE}
+LDFLAGS += -X main.version=${VERSION} -X main.commitHash=${COMMIT_HASH} -X main.buildDate=${BUILD_DATE}
 export CGO_ENABLED ?= 0
-export GO111MODULE = on
 ifeq (${VERBOSE}, 1)
 	GOARGS += -v
 endif
@@ -24,13 +23,12 @@ DOCKER_TAG ?= ${VERSION}
 # Dependency versions
 GOLANGCI_VERSION = 1.12.3
 LICENSEI_VERSION = 0.1.0
-GOTESTSUM_VERSION = 0.3.2
 
-GOLANG_VERSION = 1.11.4
+GOLANG_VERSION = 1.12
 
 .PHONY: clean
 clean: ## Clean the working area and the project
-	rm -rf bin/ ${BUILD_DIR}/
+	rm -rf bin/ ${BUILD_DIR}/ vendor/
 
 .PHONY: build
 build: GOARGS += -tags "${GOTAGS}" -ldflags "${LDFLAGS}"
@@ -56,9 +54,7 @@ build-debug: BINARY_NAME_SUFFIX += debug
 build-debug: build ## Build a binary with remote debugging capabilities
 
 .PHONY: docker
-docker: export GOOS = linux
-docker: BINARY_NAME_SUFFIX += docker
-docker: build-release ## Build a Docker image
+docker:
 	docker build --build-arg BUILD_DIR=${BUILD_DIR} --build-arg BINARY_NAME=${GENERATED_BINARY_NAME} -t ${DOCKER_IMAGE}:${DOCKER_TAG} -f Dockerfile .
 ifeq (${DOCKER_LATEST}, 1)
 	docker tag ${DOCKER_IMAGE}:${DOCKER_TAG} ${DOCKER_IMAGE}:latest

@@ -25,10 +25,10 @@ import (
 )
 
 // WatchSATokens watch created token
-func WatchSATokens(config *Config, logger logur.Logger) {
+func WatchSATokens(config *Config, logger logur.Logger) error {
 	rbacHandler, err := NewRBACHandler(config.KubeConfig, logger)
 	if err != nil {
-		logger.Error(err.Error(), nil)
+		return err
 	}
 	func() {
 		ticker := time.NewTicker(1 * time.Minute)
@@ -38,6 +38,7 @@ func WatchSATokens(config *Config, logger logur.Logger) {
 			}
 		}
 	}()
+	return nil
 }
 
 func (rh *RBACHandler) evaluateLabeledSecrets(t time.Time) error {
