@@ -1,5 +1,7 @@
 module github.com/banzaicloud/jwt-to-rbac
 
+go 1.13
+
 require (
 	github.com/BurntSushi/toml v0.3.1 // indirect
 	github.com/Microsoft/go-winio v0.4.11 // indirect
