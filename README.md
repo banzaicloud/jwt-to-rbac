@@ -5,9 +5,9 @@
 
 ## JWT-to-RBAC
 
-JWT-to-RBAC lets you automatically generate RBAC resources based on JWT token. 
+JWT-to-RBAC lets you automatically generate RBAC resources based on JWT token.
 
-### Context 
+### Context
 
 For authentication we use [Dex](https://github.com/dexidp/dex) with the LDAP and GitHub connectors. The users in LDAP have group memberships, GitHub users can be members of a team in an organization and Dex issues a JWT token containing these memberships. The JWT-to-RBAC project can create `ServiceAccount`, `ClusterRoles` and `ClusterroleBindings` based on JWT tokens. When we create a new `ServiceAccount` K8s automatically generates a `service account token`.
 
@@ -24,7 +24,7 @@ JWT-to-RBAC is a core part of [Banzai Cloud Pipeline](https://banzaicloud.com/),
 
 There are some pre-requirements to kick this of for your own testing.
 
-* Configured Dex server which issues JWT tokens. If you want to issue tokens with Dex you have to configure it with LDAP connector. You can use the Banzai Cloud [Dex chart](https://github.com/banzaicloud/banzai-charts/tree/master/dex). 
+* Configured Dex server which issues JWT tokens. If you want to issue tokens with Dex you have to configure it with LDAP connector. You can use the Banzai Cloud [Dex chart](https://github.com/banzaicloud/banzai-charts/tree/master/dex).
 * GitHub account assigned for an organization or configured LDAP server - you can use the [openldap](https://github.com/osixia/docker-openldap) Docker image
 * Authentication application which uses Dex as an OpenID connector (in our case is [Pipeline](https://github.com/banzaicloud/pipeline).
 
@@ -83,7 +83,7 @@ After jwt-to-rbac extracts the information from the token, creates `ServiceAccou
 
 The [JWT-to-RBAC](https://github.com/banzaicloud/jwt-to-rbac) dos not create a new `ClusterRole` in every case; for example if a user is a member of admin group, it doesn't create this `ClusterRole` because K8s has already one by default.
 
-Default ClusterRole | Description 
+Default ClusterRole | Description
 --------------------|------------
 cluster-admin       | Allows super-user access to perform any action on any resource.
 admin               | Allows admin access, intended to be granted within a namespace using a RoleBinding.
@@ -246,9 +246,9 @@ Now you can communicate with the jwt-to-rbac app.
 ### 2. POST ID token issued by Dex to jwt-to-rbac API
 ```shell
 curl --request POST \
-  --url http://localhost:5555/rbac \
+  --url http://localhost:5555/rbac/ \
   --header 'Content-Type: application/json' \
-  --data '{\n	"token": "example.jwt.token"\n}'
+  --data '{"token": "example.jwt.token"}'
 
 # response:
 {
@@ -311,7 +311,7 @@ curl --request GET \
 curl --request POST \
   --url http://localhost:5555/tokens/janedoe-example-com \
   --header 'Content-Type: application/json'
-  --data '{\n"duration": "12h30m"\n}'
+  --data '{"duration": "12h30m"}'
 
 # response:
 [
@@ -328,7 +328,7 @@ curl --request POST \
 
 Now you have a base64 encoded `service account token`.
 
-### 5. Accessing with ServiceAccount token 
+### 5. Accessing with ServiceAccount token
 
 You can use `service account token` from command line:
 ```shell
