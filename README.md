@@ -207,6 +207,7 @@ rbachandler:
     - verbs: [ "get", "list" ]
       resources: [ "deployments", "replicasets", "pods" ]
       apiGroups: [ "", "extensions", "apps" ]
+      namespaces: ["example_namespace"] # Only if you want to isolate the customRules to some namespaces, if you want that the customRules to apply to all namespaces delete this hole line...
   kubeConfig: "/Users/poke/.kube/config"
 ```
 
