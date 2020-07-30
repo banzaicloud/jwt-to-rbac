@@ -24,6 +24,7 @@ type Config struct {
 type CustomGroup struct {
 	GroupName   string
 	CustomRules []CustomRule
+	NameSpaces  []string
 }
 
 type CustomRule struct {
