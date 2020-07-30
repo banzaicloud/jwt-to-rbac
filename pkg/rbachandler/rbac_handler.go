@@ -65,6 +65,14 @@ type clusterRoleBinding struct {
 	labels    labels
 }
 
+type roleBinding struct {
+	name      string
+	saName    string
+	roleName  string
+	nameSpace []string
+	labels    labels
+}
+
 // serviceAccount implements create ServiceAccount
 type serviceAccount struct {
 	name      string
@@ -75,6 +83,7 @@ type serviceAccount struct {
 type rbacResources struct {
 	clusterRoles        []clusterRole
 	clusterRoleBindings []clusterRoleBinding
+	roleBindings        []roleBinding
 	serviceAccount      serviceAccount
 }
 
@@ -146,6 +155,7 @@ func ListRBACResources(config *Config, logger logur.Logger) (*RBACList, error) {
 	if err != nil {
 		return &RBACList{}, err
 	}
+	// TODO: crerate a RoleBindList
 	saList, err := rbacHandler.listServiceAccount()
 	if err != nil {
 		return &RBACList{}, err
@@ -166,7 +176,7 @@ func (rh *RBACHandler) listClusterroleBindings() ([]string, error) {
 	}
 	binds, err := bindings.List(listOptions)
 	if err != nil {
-		return nil, emperror.WrapWith(err, "unable to list bindings", "ListOptions", metav1.ListOptions{})
+		return nil, emperror.WrapWith(err, "unable to list clusterrolebindings", "ListOptions", metav1.ListOptions{})
 	}
 	var cRoleBindList []string
 	for _, b := range binds.Items {
@@ -274,6 +284,50 @@ func (rh *RBACHandler) createClusterRoleBinding(crb *clusterRoleBinding) error {
 	return nil
 }
 
+func (rh *RBACHandler) createRoleBinding(rb *roleBinding) error {
+	if err := rh.getAndCheckRoleBinding(rb.name, rb.nameSpace); err == nil {
+		return nil
+	}
+	var subjects []apirbacv1.Subject
+	for _, ns := range rb.nameSpace {
+		subject := apirbacv1.Subject{
+			Kind:      "ServiceAccount",
+			APIGroup:  "",
+			Name:      rb.saName,
+			Namespace: ns,
+		}
+		subjects = append(subjects, subject)
+
+		bindObj := &apirbacv1.RoleBinding{
+			TypeMeta: metav1.TypeMeta{
+				Kind:       "RoleBinding",
+				APIVersion: "v1",
+			},
+			ObjectMeta: metav1.ObjectMeta{
+				Name:   rb.name,
+				Labels: rb.labels,
+			},
+			Subjects: subjects,
+			RoleRef: apirbacv1.RoleRef{
+				Kind:     "ClusterRole",
+				APIGroup: "rbac.authorization.k8s.io",
+				Name:     rb.roleName,
+			},
+		}
+		ownerReferences, err := rh.getSAReference(rb.saName)
+		if err != nil {
+			return err
+		}
+		bindObj.SetOwnerReferences(ownerReferences)
+		_, err = rh.rbacClientSet.RoleBindings(ns).Create(bindObj)
+		if err != nil {
+			return emperror.WrapWith(err, "create rolebinding failed", "RoleBinding", rb.name)
+		}
+	}
+
+	return nil
+}
+
 func (rh *RBACHandler) createClusterRole(cr *clusterRole) error {
 	if err := rh.getAndCheckCRole(cr.name); err == nil {
 		return nil
@@ -323,6 +377,15 @@ func generateRules(groupName string, config *Config) []rule {
 	return cRules
 }
 
+func getCustomGroupNamespaces(groupName string, config *Config) []string {
+	for _, cGroup := range config.CustomGroups {
+		if cGroup.GroupName == groupName {
+			return cGroup.NameSpaces
+		}
+	}
+	return nil
+}
+
 func generateClusterRole(group string, config *Config) (clusterRole, error) {
 	rules := generateRules(group, config)
 	if len(rules) < 1 {
@@ -369,6 +432,7 @@ func generateRbacResources(user *tokenhandler.User, config *Config, nameSpaces [
 
 	var clusterRoles []clusterRole
 	var clusterRoleBindings []clusterRoleBinding
+	var roleBindings []roleBinding
 	for _, group := range groupList {
 		var roleName string
 		switch group {
@@ -385,14 +449,27 @@ func generateRbacResources(user *tokenhandler.User, config *Config, nameSpaces [
 			clusterRoles = append(clusterRoles, cRole)
 			roleName = group + "-from-jwt"
 		}
-		cRoleBinding := clusterRoleBinding{
-			name:      saName + "-" + roleName + "-binding",
-			saName:    saName,
-			roleName:  roleName,
-			nameSpace: nameSpaces,
-			labels:    defaultLabel,
+		// TODO: rolebiding
+		customGroupNameSpaces := getCustomGroupNamespaces(group, config)
+		if len(customGroupNameSpaces) == 0 {
+			cRoleBinding := clusterRoleBinding{
+				name:      saName + "-" + roleName + "-binding",
+				saName:    saName,
+				roleName:  roleName,
+				nameSpace: nameSpaces,
+				labels:    defaultLabel,
+			}
+			clusterRoleBindings = append(clusterRoleBindings, cRoleBinding)
+		} else {
+			groupRoleBinding := roleBinding{
+				name:      saName + "-" + roleName + "-binding",
+				saName:    saName,
+				roleName:  roleName,
+				nameSpace: customGroupNameSpaces,
+				labels:    defaultLabel,
+			}
+			roleBindings = append(roleBindings, groupRoleBinding)
 		}
-		clusterRoleBindings = append(clusterRoleBindings, cRoleBinding)
 	}
 
 	rbacResources := &rbacResources{
@@ -402,6 +479,7 @@ func generateRbacResources(user *tokenhandler.User, config *Config, nameSpaces [
 			name:   saName,
 			labels: defaultLabel,
 		},
+		roleBindings: roleBindings,
 	}
 	return rbacResources, nil
 }
@@ -433,6 +511,12 @@ func CreateRBAC(user *tokenhandler.User, config *Config, logger logur.Logger) er
 	}
 	for _, clusterRoleBinding := range rbacResources.clusterRoleBindings {
 		if err := rbacHandler.createClusterRoleBinding(&clusterRoleBinding); err != nil {
+			logger.Error(err.Error(), nil)
+			return err
+		}
+	}
+	for _, roleBinding := range rbacResources.roleBindings {
+		if err := rbacHandler.createRoleBinding(&roleBinding); err != nil {
 			logger.Error(err.Error(), nil)
 			return err
 		}
@@ -480,6 +564,24 @@ func (rh *RBACHandler) getAndCheckCRoleBinding(CRBindingName string) error {
 		return nil
 	}
 	return err
+}
+
+func (rh *RBACHandler) getAndCheckRoleBinding(RBindingName string, NameSpaces []string) error {
+
+	for _, namespace := range NameSpaces {
+		roleBind, err := rh.rbacClientSet.RoleBindings(namespace).Get(RBindingName, metav1.GetOptions{})
+		if err == nil {
+			if label, ok := roleBind.ObjectMeta.Labels[defautlLabelKey]; !ok || label != defaultLabel[defautlLabelKey] {
+				return emperror.WrapWith(errors.New("label mismatch in clusterrole"),
+					"there is a RoleBinding without required label",
+					defautlLabelKey, defaultLabel[defautlLabelKey],
+					"rolebinding", RBindingName)
+			}
+			continue
+		}
+		return err
+	}
+	return nil
 }
 
 func (rh *RBACHandler) getSAReference(saName string) ([]metav1.OwnerReference, error) {

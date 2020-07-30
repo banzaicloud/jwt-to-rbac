@@ -43,6 +43,25 @@ func createFakeConfig(groupName string) *Config {
 	return config
 }
 
+func createFakeConfigNamespaces(groupName string) *Config {
+	kubeconfig := path.Join(os.Getenv("HOME"), ".kube/config")
+	customRule := CustomRule{
+		Verbs:     []string{"get", "list"},
+		Resources: []string{"deployments", "replicasets", "pods"},
+		APIGroups: []string{"", "extensions", "apps"},
+	}
+	customGroup := CustomGroup{
+		GroupName:   groupName,
+		CustomRules: []CustomRule{customRule},
+		NameSpaces: []string{"helloworld"},
+	}
+	config := &Config{
+		CustomGroups: []CustomGroup{customGroup},
+		KubeConfig:   kubeconfig,
+	}
+	return config
+}
+
 func createLogger() logur.Logger {
 	logConfig := log.Config{Format: "json", Level: "4", NoColor: true}
 	logger := log.NewLogger(logConfig)
@@ -100,6 +119,66 @@ func TestGenerateRbacResources(t *testing.T) {
 	}
 	assert.ElementsMatch(bindNames, []string{"janedoe-example-com-admin-binding"})
 	assert.ElementsMatch(roleNames, []string{"admin"})
+
+}
+
+func TestGenerateRbacResourcesWithNameSpaces(t *testing.T) {
+	logger := createLogger()
+	assert := assert.New(t)
+	groups := []string{"admins", "developers"}
+	federatedClaims := tokenhandler.FederatedClaims{
+		ConnectorID: "ldap",
+		UserID:      "cn=jane,ou=People,dc=example,dc=org",
+	}
+	user := &tokenhandler.User{
+		Email:           "janedoe@example.com",
+		Groups:          groups,
+		FederatedClaims: federatedClaims,
+	}
+	testRbacResources, _ := generateRbacResources(user, createFakeConfigNamespaces("developers"), []string{"default"}, logger)
+	roleSuccess := assert.Equal(len(testRbacResources.clusterRoles), 1)
+	assert.Equal(len(testRbacResources.roleBindings), 1)
+	assert.Equal(len(testRbacResources.clusterRoleBindings), 1)
+	assert.Equal(testRbacResources.serviceAccount.name, "janedoe-example-com")
+	if roleSuccess {
+		assert.Equal(testRbacResources.clusterRoles[0].name, "developers-from-jwt")
+	}
+	var bindNames, roleNames []string
+	for _, crBind := range testRbacResources.clusterRoleBindings {
+		bindNames = append(bindNames, crBind.name)
+		roleNames = append(roleNames, crBind.roleName)
+	}
+	assert.ElementsMatch(bindNames, []string{"janedoe-example-com-admin-binding"})
+	assert.ElementsMatch(roleNames, []string{"admin"})
+	bindNames = nil
+	roleNames = nil
+	for _, crBind := range testRbacResources.roleBindings {
+		bindNames = append(bindNames, crBind.name)
+		roleNames = append(roleNames, crBind.roleName)
+	}
+	assert.ElementsMatch(bindNames, []string{"janedoe-example-com-developers-from-jwt-binding"})
+	assert.ElementsMatch(roleNames, []string{"developers-from-jwt"})
+
+	testRbacResources, _ = generateRbacResources(user, createFakeConfig("fakegroup"), []string{"default"}, logger)
+	assert.Equal(len(testRbacResources.clusterRoles), 0)
+	assert.Equal(len(testRbacResources.clusterRoleBindings), 1)
+	assert.Equal(testRbacResources.serviceAccount.name, "janedoe-example-com")
+	bindNames = nil
+	roleNames = nil
+	for _, crBind := range testRbacResources.clusterRoleBindings {
+		bindNames = append(bindNames, crBind.name)
+		roleNames = append(roleNames, crBind.roleName)
+	}
+	assert.ElementsMatch(bindNames, []string{"janedoe-example-com-admin-binding"})
+	assert.ElementsMatch(roleNames, []string{"admin"})
+	bindNames = nil
+	roleNames = nil
+	for _, crBind := range testRbacResources.roleBindings {
+		bindNames = append(bindNames, crBind.name)
+		roleNames = append(roleNames, crBind.roleName)
+	}
+	assert.ElementsMatch(bindNames, nil)
+	assert.ElementsMatch(roleNames, nil)
 
 }
 
