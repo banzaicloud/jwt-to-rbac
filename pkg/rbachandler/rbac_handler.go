@@ -66,11 +66,12 @@ type clusterRoleBinding struct {
 }
 
 type roleBinding struct {
-	name      string
-	saName    string
-	roleName  string
-	nameSpace []string
-	labels    labels
+	name        string
+	saName      string
+	roleName    string
+	nameSpace   []string
+	saNameSpace []string
+	labels      labels
 }
 
 // serviceAccount implements create ServiceAccount
@@ -155,7 +156,7 @@ func ListRBACResources(config *Config, logger logur.Logger) (*RBACList, error) {
 	if err != nil {
 		return &RBACList{}, err
 	}
-	// TODO: crerate a RoleBindList
+	// TODO: crerate a listRoleBindList
 	saList, err := rbacHandler.listServiceAccount()
 	if err != nil {
 		return &RBACList{}, err
@@ -294,7 +295,8 @@ func (rh *RBACHandler) createRoleBinding(rb *roleBinding) error {
 			Kind:      "ServiceAccount",
 			APIGroup:  "",
 			Name:      rb.saName,
-			Namespace: ns,
+			// Role binding only need a SA in one namespace...
+			Namespace: rb.saNameSpace[0],
 		}
 		subjects = append(subjects, subject)
 
@@ -449,7 +451,6 @@ func generateRbacResources(user *tokenhandler.User, config *Config, nameSpaces [
 			clusterRoles = append(clusterRoles, cRole)
 			roleName = group + "-from-jwt"
 		}
-		// TODO: rolebiding
 		customGroupNameSpaces := getCustomGroupNamespaces(group, config)
 		if len(customGroupNameSpaces) == 0 {
 			cRoleBinding := clusterRoleBinding{
@@ -462,11 +463,12 @@ func generateRbacResources(user *tokenhandler.User, config *Config, nameSpaces [
 			clusterRoleBindings = append(clusterRoleBindings, cRoleBinding)
 		} else {
 			groupRoleBinding := roleBinding{
-				name:      saName + "-" + roleName + "-binding",
-				saName:    saName,
-				roleName:  roleName,
-				nameSpace: customGroupNameSpaces,
-				labels:    defaultLabel,
+				name:      	 saName + "-" + roleName + "-binding",
+				saName:    	 saName,
+				roleName:  	 roleName,
+				saNameSpace: nameSpaces,
+				nameSpace:   customGroupNameSpaces,
+				labels:      defaultLabel,
 			}
 			roleBindings = append(roleBindings, groupRoleBinding)
 		}
