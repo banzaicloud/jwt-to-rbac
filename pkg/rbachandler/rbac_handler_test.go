@@ -143,7 +143,7 @@ func TestGenerateRbacResourcesWithNameSpaces(t *testing.T) {
 	if roleSuccess {
 		assert.Equal(testRbacResources.clusterRoles[0].name, "developers-from-jwt")
 	}
-	var bindNames, roleNames []string
+	var bindNames, roleNames,saNamespaces []string
 	for _, crBind := range testRbacResources.clusterRoleBindings {
 		bindNames = append(bindNames, crBind.name)
 		roleNames = append(roleNames, crBind.roleName)
@@ -155,9 +155,11 @@ func TestGenerateRbacResourcesWithNameSpaces(t *testing.T) {
 	for _, crBind := range testRbacResources.roleBindings {
 		bindNames = append(bindNames, crBind.name)
 		roleNames = append(roleNames, crBind.roleName)
+		saNamespaces = append(saNamespaces, crBind.saNameSpace...)
 	}
 	assert.ElementsMatch(bindNames, []string{"janedoe-example-com-developers-from-jwt-binding"})
 	assert.ElementsMatch(roleNames, []string{"developers-from-jwt"})
+	assert.ElementsMatch(saNamespaces, []string{"default"})
 
 	testRbacResources, _ = generateRbacResources(user, createFakeConfig("fakegroup"), []string{"default"}, logger)
 	assert.Equal(len(testRbacResources.clusterRoles), 0)
