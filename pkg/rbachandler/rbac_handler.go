@@ -331,9 +331,6 @@ func (rh *RBACHandler) createRoleBinding(rb *roleBinding) error {
 }
 
 func (rh *RBACHandler) createClusterRole(cr *clusterRole) error {
-	if err := rh.getAndCheckCRole(cr.name); err == nil {
-		return nil
-	}
 	var rules []apirbacv1.PolicyRule
 	for _, rule := range cr.rules {
 		rule := apirbacv1.PolicyRule{
@@ -354,7 +351,7 @@ func (rh *RBACHandler) createClusterRole(cr *clusterRole) error {
 		},
 		Rules: rules,
 	}
-	_, err := rh.rbacClientSet.ClusterRoles().Create(roleObj)
+	_, err := rh.rbacClientSet.ClusterRoles().Update(roleObj)
 	if err != nil {
 		return emperror.WrapWith(err, "create clusterrole failed", "ClusterRole", cr.name)
 	}
@@ -430,6 +427,13 @@ func generateRbacResources(user *tokenhandler.User, config *Config, nameSpaces [
 		groupList = user.Groups
 	default:
 		return nil, emperror.With(errors.New("connector is not implemented yet"), "ConnectorID", user.FederatedClaims.ConnectorID)
+	}
+
+	if err := DeleteRBAC(saName, config, logger); err != nil {
+		if !strings.Contains(err.Error(), "not found")  {
+			logger.Error(err.Error(), nil)
+			return nil, err
+		}
 	}
 
 	var clusterRoles []clusterRole
