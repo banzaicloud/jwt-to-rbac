@@ -15,6 +15,7 @@
 package main
 
 import (
+	"github.com/fsnotify/fsnotify"
 	"context"
 	"fmt"
 	"net"
@@ -77,6 +78,14 @@ func main() {
 	if configFileNotFound {
 		logger.Warn("configuration file not found", nil)
 	}
+
+	viper.WatchConfig()
+	viper.OnConfigChange(func(e fsnotify.Event) {
+		logger.Info("Config file changed: " + e.Name)
+		config = Config{}
+		err = viper.Unmarshal(&config)
+		emperror.Panic(errors.Wrap(err, "failed to unmarshal configuration"))
+	})
 
 	logger.Info("configuration info", map[string]interface{}{
 		"ClientID":   config.Tokenhandler.Dex.ClientID,
