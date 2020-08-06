@@ -162,5 +162,20 @@ func main() {
 		)
 	}
 
+	{
+		g.Add(
+			func() error {
+				logger.Info("Starting watching ClusterRoles.")
+				return rbachandler.WatchClusterRoles(&config.Rbachandler, logger)
+			},
+			func(error) {
+				logger.Error("unable to run the ClusterRoles watcher", map[string]interface{}{
+					"error": err.Error(),
+				})
+				os.Exit(1)
+			},
+		)
+	}
+
 	g.Run()
 }
