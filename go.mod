@@ -11,6 +11,7 @@ require (
 	github.com/docker/docker v1.13.1 // indirect
 	github.com/docker/go-connections v0.4.0 // indirect
 	github.com/docker/go-units v0.3.3 // indirect
+	github.com/fsnotify/fsnotify v1.4.7
 	github.com/gocraft/work v0.5.1 // indirect
 	github.com/gogo/protobuf v1.2.0 // indirect
 	github.com/goharbor/harbor v1.7.2
@@ -43,3 +44,5 @@ require (
 	k8s.io/klog v0.1.0 // indirect
 	sigs.k8s.io/yaml v1.1.0 // indirect
 )
+
+replace github.com/belogik/goes => github.com/OwnLocal/goes v1.0.0

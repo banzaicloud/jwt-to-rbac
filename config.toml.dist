@@ -15,7 +15,7 @@ clientID = "example-app"
 issuerURL = "http://dex/dex"
 
 [rbachandler]
-kubeConfig = ""
+kubeConfig: ""
 tokenTTL: "24h"
 githubOrg: "github_organization"
 
