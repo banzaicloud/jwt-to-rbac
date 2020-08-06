@@ -15,7 +15,6 @@
 package main
 
 import (
-	"github.com/fsnotify/fsnotify"
 	"context"
 	"fmt"
 	"net"
@@ -28,6 +27,7 @@ import (
 	"github.com/banzaicloud/jwt-to-rbac/internal"
 	"github.com/banzaicloud/jwt-to-rbac/internal/log"
 	"github.com/banzaicloud/jwt-to-rbac/pkg/rbachandler"
+	"github.com/fsnotify/fsnotify"
 	"github.com/goph/emperror"
 	"github.com/oklog/run"
 	"github.com/pkg/errors"
