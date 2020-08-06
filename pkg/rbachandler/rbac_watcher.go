@@ -41,6 +41,43 @@ func WatchSATokens(config *Config, logger logur.Logger) error {
 	return nil
 }
 
+// WatchClusterRoles watch if any CustomGroup rule changes and apply them
+func WatchClusterRoles(config *Config, logger logur.Logger) error {
+	rbacHandler, err := NewRBACHandler(config.KubeConfig, logger)
+	if err != nil {
+		return err
+	}
+	func() {
+		ticker := time.NewTicker(1 * time.Minute)
+		for t := range ticker.C {
+			if err := rbacHandler.evaluateClusterRoles(config, logger, t); err != nil {
+				logger.Error(err.Error(), nil)
+			}
+		}
+	}()
+	return nil
+}
+
+func (rh *RBACHandler) evaluateClusterRoles(config *Config, logger logur.Logger, t time.Time) error {
+	rbacHandler, err := NewRBACHandler(config.KubeConfig, logger)
+	if err != nil {
+		return err
+	}
+
+	rbacResources, err := generateClusterRoleRBACResources(config, logger)
+	if err != nil {
+		return err
+	}
+	logger.Debug("Applying custom groups rules")
+	for _, clusterRole := range rbacResources.clusterRoles {
+		if err := rbacHandler.createClusterRole(&clusterRole); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
 func (rh *RBACHandler) evaluateLabeledSecrets(t time.Time) error {
 	labelSelect := fmt.Sprintf("%s=%s", defautlLabelKey, defaultLabel[defautlLabelKey])
 	listOptions := metav1.ListOptions{

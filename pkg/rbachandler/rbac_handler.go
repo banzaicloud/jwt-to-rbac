@@ -490,6 +490,24 @@ func generateRbacResources(user *tokenhandler.User, config *Config, nameSpaces [
 	return rbacResources, nil
 }
 
+func generateClusterRoleRBACResources(config *Config, logger logur.Logger) (*rbacResources, error) {
+	var clusterRoles []clusterRole
+
+	for _, group := range config.CustomGroups {
+		cRole, err := generateClusterRole(group.GroupName, config)
+		if err != nil {
+			logger.Info(err.Error(), map[string]interface{}{"group": group.GroupName})
+			continue
+		}
+		clusterRoles = append(clusterRoles, cRole)
+	}
+
+	rbacResources := &rbacResources{
+		clusterRoles: clusterRoles,
+	}
+	return rbacResources, nil
+}
+
 // CreateRBAC create RBAC resources
 func CreateRBAC(user *tokenhandler.User, config *Config, logger logur.Logger) error {
 	logger = log.WithFields(logger, map[string]interface{}{"package": "rbachandler"})
