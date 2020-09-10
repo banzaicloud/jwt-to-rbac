@@ -1,13 +1,9 @@
 name: Docker
 on:
   push:
-    branches:
-      - master
     tags:
       - "[0-9]+.[0-9]+.[0-9]+"
-    paths-ignore:
-      - 'README.md'
-      - 'charts/**'
+
 jobs:
   docker:
     name: Docker
@@ -25,3 +21,4 @@ jobs:
           dockerfile: Dockerfile
           tag_with_ref: true
           add_git_labels: true
+          tags: latest
