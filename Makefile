@@ -54,7 +54,7 @@ build-debug: BINARY_NAME_SUFFIX += debug
 build-debug: build ## Build a binary with remote debugging capabilities
 
 .PHONY: docker
-docker:
+docker: ## Build a Docker image
 	docker build --build-arg BUILD_DIR=${BUILD_DIR} --build-arg BINARY_NAME=${GENERATED_BINARY_NAME} -t ${DOCKER_IMAGE}:${DOCKER_TAG} -f Dockerfile .
 ifeq (${DOCKER_LATEST}, 1)
 	docker tag ${DOCKER_IMAGE}:${DOCKER_TAG} ${DOCKER_IMAGE}:latest
