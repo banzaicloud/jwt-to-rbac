@@ -21,6 +21,9 @@ jobs:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       run: make license-check
 
+    - name: Buld code
+      run: make build
+
   acceptance-test:
     name: Acceptance test
     runs-on: ubuntu-latest
@@ -39,17 +42,17 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v2
 
-    - name: Start kind cluster
-      run: kind create cluster --config hack/kind.yaml
-
     - name: Build Docker image
       run: |
         make docker
+
+    - name: Create k8s Kind Cluster
+      uses: helm/kind-action@v1.0.0
 
     - name: Load Docker images to kind
       run: |
         kind load docker-image banzaicloud/jwt-to-rbac:latest
 
-    - name: Operator and webhook acceptance test
+    - name: Run make check
       run: |
         make check
