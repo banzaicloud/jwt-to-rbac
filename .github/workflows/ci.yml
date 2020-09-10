@@ -28,7 +28,6 @@ jobs:
     name: Acceptance test
     runs-on: ubuntu-latest
     env:
-      KURUN_VERSION: "0.4.1"
       DOCKER_LATEST: 1
       VERSION: latest
 
@@ -48,10 +47,12 @@ jobs:
 
     - name: Create k8s Kind Cluster
       uses: helm/kind-action@v1.0.0
+      with:
+        cluster_name: "acceptance-test"
 
     - name: Load Docker images to kind
       run: |
-        kind load docker-image banzaicloud/jwt-to-rbac:latest
+        kind load docker-image --name acceptance-test banzaicloud/jwt-to-rbac:latest
 
     - name: Run make check
       run: |
