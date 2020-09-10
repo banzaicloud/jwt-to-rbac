@@ -47,18 +47,24 @@ jobs:
       uses: actions/checkout@v2
 
     - name: Build Docker image
+      id: build
       run: |
         make docker
 
     - name: Create k8s Kind Cluster
       uses: helm/kind-action@v1.0.0
+      id: cluster
       with:
         cluster_name: "acceptance-test"
+      if: steps.build.outputs.changed == 'true'
+
 
     - name: Load Docker images to kind
       run: |
         kind load docker-image --name acceptance-test banzaicloud/jwt-to-rbac:latest
+      if: steps.build.outputs.changed == 'true'
 
     - name: Run make check
       run: |
         make check
+      if: steps.cluster.outputs.changed == 'true'
