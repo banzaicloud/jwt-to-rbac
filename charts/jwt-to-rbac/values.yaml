@@ -5,8 +5,8 @@
 replicaCount: 1
 
 image:
-  repository: banzaicloud/jwt-to-rbac
-  tag: 0.2.0
+  repository: ghcr.io/banzaicloud/jwt-to-rbac
+  tag: 0.3.0
   pullPolicy: IfNotPresent
 
 nameOverride: ""
