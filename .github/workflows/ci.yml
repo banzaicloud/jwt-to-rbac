@@ -20,3 +20,36 @@ jobs:
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       run: make license-check
+
+  acceptance-test:
+    name: Acceptance test
+    runs-on: ubuntu-latest
+    env:
+      KURUN_VERSION: "0.4.1"
+      DOCKER_LATEST: 1
+      VERSION: latest
+
+    steps:
+
+    - name: Set up Go 1.14
+      uses: actions/setup-go@v1
+      with:
+        go-version: 1.14
+
+    - name: Checkout code
+      uses: actions/checkout@v2
+
+    - name: Start kind cluster
+      run: kind create cluster --config hack/kind.yaml
+
+    - name: Build Docker image
+      run: |
+        make docker
+
+    - name: Load Docker images to kind
+      run: |
+        kind load docker-image banzaicloud/jwt-to-rbac:latest
+
+    - name: Operator and webhook acceptance test
+      run: |
+        make check
