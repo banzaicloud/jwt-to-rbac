@@ -1,0 +1,18 @@
+name: Release Charts
+on:
+  push:
+    tags:
+      - "charts/[0-9]+.[0-9]+.[0-9]+"
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@master
+    - uses: goodsmileduck/helm-push-action@v2
+      env:
+        SOURCE_DIR: './charts'
+        CHART_FOLDER: 'jwt-to-rbacr'
+        CHARTMUSEUM_URL: 'https://kubernetes-charts.banzaicloud.com/'
+        CHARTMUSEUM_USER: '${{ secrets.CHARTMUSEUM_USER }}'
+        CHARTMUSEUM_PASSWORD: ${{ secrets.CHARTMUSEUM_PASSWORD }}
