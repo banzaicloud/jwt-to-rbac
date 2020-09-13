@@ -1,8 +1,9 @@
 name: Anchore Container Scan
 on:
   push:
-    branches:
-      - test_anchore
+    branches: [master, ]
+  pull_request:
+    branches: [master]
 
 jobs:
   Anchore-Build-Scan:
