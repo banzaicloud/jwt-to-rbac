@@ -2,8 +2,9 @@ name: Anchore Container Scan
 on:
   push:
     branches: [master, ]
-  pull_request:
-    branches: [master]
+    paths-ignore:
+      - 'README.md'
+      - 'charts/**'
 
 jobs:
   Anchore-Build-Scan:
