@@ -53,7 +53,7 @@ func createFakeConfigNamespaces(groupName string) *Config {
 	customGroup := CustomGroup{
 		GroupName:   groupName,
 		CustomRules: []CustomRule{customRule},
-		NameSpaces: []string{"helloworld"},
+		NameSpaces:  []string{"helloworld"},
 	}
 	config := &Config{
 		CustomGroups: []CustomGroup{customGroup},
@@ -92,7 +92,8 @@ func TestGenerateRbacResources(t *testing.T) {
 		Groups:          groups,
 		FederatedClaims: federatedClaims,
 	}
-	testRbacResources, _ := generateRbacResources(user, createFakeConfig("developers"), []string{"default"}, logger)
+	testRbacResources, err := generateRbacResources(user, createFakeConfig("developers"), []string{"default"}, logger)
+	assert.NoError(err)
 	roleSuccess := assert.Equal(len(testRbacResources.clusterRoles), 1)
 	assert.Equal(len(testRbacResources.clusterRoleBindings), 2)
 	assert.Equal(testRbacResources.serviceAccount.name, "janedoe-example-com")
@@ -107,7 +108,8 @@ func TestGenerateRbacResources(t *testing.T) {
 	assert.ElementsMatch(bindNames, []string{"janedoe-example-com-admin-binding", "janedoe-example-com-developers-from-jwt-binding"})
 	assert.ElementsMatch(roleNames, []string{"admin", "developers-from-jwt"})
 
-	testRbacResources, _ = generateRbacResources(user, createFakeConfig("fakegroup"), []string{"default"}, logger)
+	testRbacResources, err = generateRbacResources(user, createFakeConfig("fakegroup"), []string{"default"}, logger)
+	assert.NoError(err)
 	assert.Equal(len(testRbacResources.clusterRoles), 0)
 	assert.Equal(len(testRbacResources.clusterRoleBindings), 1)
 	assert.Equal(testRbacResources.serviceAccount.name, "janedoe-example-com")
@@ -119,7 +121,6 @@ func TestGenerateRbacResources(t *testing.T) {
 	}
 	assert.ElementsMatch(bindNames, []string{"janedoe-example-com-admin-binding"})
 	assert.ElementsMatch(roleNames, []string{"admin"})
-
 }
 
 func TestGenerateRbacResourcesWithNameSpaces(t *testing.T) {
@@ -135,7 +136,8 @@ func TestGenerateRbacResourcesWithNameSpaces(t *testing.T) {
 		Groups:          groups,
 		FederatedClaims: federatedClaims,
 	}
-	testRbacResources, _ := generateRbacResources(user, createFakeConfigNamespaces("developers"), []string{"default"}, logger)
+	testRbacResources, err := generateRbacResources(user, createFakeConfigNamespaces("developers"), []string{"default"}, logger)
+	assert.NoError(err)
 	roleSuccess := assert.Equal(len(testRbacResources.clusterRoles), 1)
 	assert.Equal(len(testRbacResources.roleBindings), 1)
 	assert.Equal(len(testRbacResources.clusterRoleBindings), 1)
@@ -143,7 +145,7 @@ func TestGenerateRbacResourcesWithNameSpaces(t *testing.T) {
 	if roleSuccess {
 		assert.Equal(testRbacResources.clusterRoles[0].name, "developers-from-jwt")
 	}
-	var bindNames, roleNames,saNamespaces []string
+	var bindNames, roleNames, saNamespaces []string
 	for _, crBind := range testRbacResources.clusterRoleBindings {
 		bindNames = append(bindNames, crBind.name)
 		roleNames = append(roleNames, crBind.roleName)
@@ -161,7 +163,8 @@ func TestGenerateRbacResourcesWithNameSpaces(t *testing.T) {
 	assert.ElementsMatch(roleNames, []string{"developers-from-jwt"})
 	assert.ElementsMatch(saNamespaces, []string{"default"})
 
-	testRbacResources, _ = generateRbacResources(user, createFakeConfig("fakegroup"), []string{"default"}, logger)
+	testRbacResources, err = generateRbacResources(user, createFakeConfig("fakegroup"), []string{"default"}, logger)
+	assert.NoError(err)
 	assert.Equal(len(testRbacResources.clusterRoles), 0)
 	assert.Equal(len(testRbacResources.clusterRoleBindings), 1)
 	assert.Equal(testRbacResources.serviceAccount.name, "janedoe-example-com")
@@ -186,12 +189,11 @@ func TestGenerateRbacResourcesWithNameSpaces(t *testing.T) {
 
 func TestGenerateClusterRole(t *testing.T) {
 	assert := assert.New(t)
-	cRole, _ := generateClusterRole("developers", createFakeConfig("developers"))
+	cRole, err := generateClusterRole("developers", createFakeConfig("developers"))
+	assert.NoError(err)
 	assert.Equal(cRole.name, "developers-from-jwt")
 	_, err := generateClusterRole("developers", createFakeConfig("fakegroup"))
-	if err != nil {
-		assert.EqualError(err, "cannot find specified group in jwt-to-rbac config")
-	}
+	assert.EqualError(err, "cannot find specified group in jwt-to-rbac config")
 }
 
 func TestListClusterroleBindings(t *testing.T) {
@@ -201,11 +203,10 @@ func TestListClusterroleBindings(t *testing.T) {
 }
 
 func TestGetAndCheckSA(t *testing.T) {
-	config := createFakeConfig("developers")
-	rbacHandler, _ := NewRBACHandler(config.KubeConfig, createLogger())
-	_, err := rbacHandler.getAndCheckSA("default")
 	assert := assert.New(t)
-	if err != nil {
-		assert.EqualError(err, "getting not jwt-to-rbac generated ServiceAccount is forbidden: label mismatch in serviceaccount")
-	}
+	config := createFakeConfig("developers")
+	rbacHandler, err := NewRBACHandler(config.KubeConfig, createLogger())
+	assert.NoError(err)
+	_, err := rbacHandler.getAndCheckSA("default")
+	assert.EqualError(err, "getting not jwt-to-rbac generated ServiceAccount is forbidden: label mismatch in serviceaccount")
 }
