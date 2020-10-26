@@ -9,4 +9,5 @@ approved = [
 ignored = [
   "github.com/gogo/protobuf",
   "sigs.k8s.io/yaml",
+  "gopkg.in/square/go-jose.v2", # Apache 2.0
 ]
