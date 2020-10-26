@@ -92,6 +92,7 @@ type rbacResources struct {
 type RBACHandler struct {
 	coreClientSet *clientcorev1.CoreV1Client
 	rbacClientSet *clientrbacv1.RbacV1Client
+	logger        logur.Logger
 }
 
 type RBACList struct {
@@ -111,7 +112,7 @@ func NewRBACHandler(kubeconfig string, logger logur.Logger) (*RBACHandler, error
 	if err != nil {
 		return nil, err
 	}
-	return &RBACHandler{coreClientSet, rbacClientSet}, nil
+	return &RBACHandler{coreClientSet, rbacClientSet, logger}, nil
 }
 
 func getK8sClientSets(kubeconfig string, logger logur.Logger) (*clientcorev1.CoreV1Client, *clientrbacv1.RbacV1Client, error) {
@@ -292,9 +293,9 @@ func (rh *RBACHandler) createRoleBinding(rb *roleBinding) error {
 	var subjects []apirbacv1.Subject
 	for _, ns := range rb.nameSpace {
 		subject := apirbacv1.Subject{
-			Kind:      "ServiceAccount",
-			APIGroup:  "",
-			Name:      rb.saName,
+			Kind:     "ServiceAccount",
+			APIGroup: "",
+			Name:     rb.saName,
 			// Role binding only need a SA in one namespace...
 			Namespace: rb.saNameSpace[0],
 		}
@@ -430,7 +431,7 @@ func generateRbacResources(user *tokenhandler.User, config *Config, nameSpaces [
 	}
 
 	if err := DeleteRBAC(saName, config, logger); err != nil {
-		if !strings.Contains(err.Error(), "not found")  {
+		if !strings.Contains(err.Error(), "not found") {
 			logger.Error(err.Error(), nil)
 			return nil, err
 		}
@@ -467,9 +468,9 @@ func generateRbacResources(user *tokenhandler.User, config *Config, nameSpaces [
 			clusterRoleBindings = append(clusterRoleBindings, cRoleBinding)
 		} else {
 			groupRoleBinding := roleBinding{
-				name:      	 saName + "-" + roleName + "-binding",
-				saName:    	 saName,
-				roleName:  	 roleName,
+				name:        saName + "-" + roleName + "-binding",
+				saName:      saName,
+				roleName:    roleName,
 				saNameSpace: nameSpaces,
 				nameSpace:   customGroupNameSpaces,
 				labels:      defaultLabel,

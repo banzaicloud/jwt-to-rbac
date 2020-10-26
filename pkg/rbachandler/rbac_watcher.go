@@ -18,7 +18,6 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/goharbor/harbor/src/jobservice/logger"
 	"github.com/goph/emperror"
 	"github.com/goph/logur"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -89,7 +88,7 @@ func (rh *RBACHandler) evaluateLabeledSecrets(t time.Time) error {
 	}
 	if len(secretList.Items) > 0 {
 		for _, sec := range secretList.Items {
-			logger.Debug("checking secret", map[string]interface{}{"secname": sec.Name})
+			rh.logger.Debug("checking secret", map[string]interface{}{"secname": sec.Name})
 			if rh.checkTTL(sec.Name) != nil {
 				return err
 			}
