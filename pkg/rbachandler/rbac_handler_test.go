@@ -192,7 +192,7 @@ func TestGenerateClusterRole(t *testing.T) {
 	cRole, err := generateClusterRole("developers", createFakeConfig("developers"))
 	assert.NoError(err)
 	assert.Equal(cRole.name, "developers-from-jwt")
-	_, err := generateClusterRole("developers", createFakeConfig("fakegroup"))
+	_, err = generateClusterRole("developers", createFakeConfig("fakegroup"))
 	assert.EqualError(err, "cannot find specified group in jwt-to-rbac config")
 }
 
@@ -207,6 +207,6 @@ func TestGetAndCheckSA(t *testing.T) {
 	config := createFakeConfig("developers")
 	rbacHandler, err := NewRBACHandler(config.KubeConfig, createLogger())
 	assert.NoError(err)
-	_, err := rbacHandler.getAndCheckSA("default")
+	_, err = rbacHandler.getAndCheckSA("default")
 	assert.EqualError(err, "getting not jwt-to-rbac generated ServiceAccount is forbidden: label mismatch in serviceaccount")
 }
