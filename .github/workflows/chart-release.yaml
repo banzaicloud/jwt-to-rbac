@@ -14,5 +14,5 @@ jobs:
         SOURCE_DIR: 'charts'
         CHART_FOLDER: 'jwt-to-rbac'
         CHARTMUSEUM_URL: 'https://kubernetes-charts.banzaicloud.com'
-        CHARTMUSEUM_USER: '${{ secrets.CHARTMUSEUM_USER }}'
-        CHARTMUSEUM_PASSWORD: '${{ secrets.CHARTMUSEUM_PASSWORD }}'
+        CHARTMUSEUM_USER: '${{ secrets.HELM_REPO_USERNAME }}'
+        CHARTMUSEUM_PASSWORD: '${{ secrets.HELM_REPO_PASSWORD }}'
