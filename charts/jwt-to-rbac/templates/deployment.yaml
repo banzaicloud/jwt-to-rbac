@@ -15,6 +15,8 @@ spec:
       release: {{ .Release.Name }}
   template:
     metadata:
+      annotations:
+        checksum/config: {{ include (print .Template.BasePath "/configmap.yaml") . | sha256sum | trunc 63 }}
       labels:
         app: {{ include "jwt-to-rbac.name" . }}
         release: {{ .Release.Name }}
