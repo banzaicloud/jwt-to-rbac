@@ -10,7 +10,7 @@ noColor = true
 caCertPath = "/path/to/ca.crt"
 insecure = false
 
-[tokenhandler.dex]
+[tokenhandler.oidc]
 clientID = "example-app"
 issuerURL = "http://dex/dex"
 

@@ -88,8 +88,8 @@ func main() {
 	})
 
 	logger.Info("configuration info", map[string]interface{}{
-		"ClientID":   config.Tokenhandler.Dex.ClientID,
-		"IssuerURL":  config.Tokenhandler.Dex.IssuerURL,
+		"ClientID":   config.Tokenhandler.OIDC.ClientID,
+		"IssuerURL":  config.Tokenhandler.OIDC.IssuerURL,
 		"ServerPort": config.App.Addr,
 		"KubeConfig": config.Rbachandler.KubeConfig})
 
