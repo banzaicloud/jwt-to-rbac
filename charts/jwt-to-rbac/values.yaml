@@ -32,7 +32,7 @@ config:
     noColor: true
   tokenhandler:
     caCertPath: ""
-    dex:
+    oidc:
       clientID: ""
       issuerURL: ""
   rbachandler:

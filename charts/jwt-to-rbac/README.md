@@ -12,12 +12,12 @@ $ helm repo update
 Deploying jwt-to-rbac:
 
 ```bash
-$ helm install --name <name> --set config.tokenhandler.dex.clientID=<client-id> --set config.tokenhandler.dex.issuerURL=<http://dex-url/dex>
+$ helm install --name <name> --set config.tokenhandler.oidc.clientID=<client-id> --set config.tokenhandler.oidc.issuerURL=<http://dex-url/dex>
 ```
 
 ## Configuration
 
-The following table lists configurable parameters of the dex chart and their default values.
+The following table lists configurable parameters of the `jwt-to-rbac` chart and their default values.
 
 |               Parameter             |                Description                  |                  Default                 |
 | ----------------------------------- | ------------------------------------------- | -----------------------------------------|
@@ -34,8 +34,8 @@ The following table lists configurable parameters of the dex chart and their def
 |config.log.level                     |jwt-to-rbac log level                        |"4"                                       |
 |config.log.format                    |jwt-to-rbac log format                       |"json"                                    |
 |config.log.noColor                   |jwt-to-rbac log noColor                      |true                                      |
-|config.tokenhandler.caCertPath       |CA cert for Dex used self-signed cert        |""                                        |
-|config.tokenhandler.dex.clientID     |client ID  for Dex                           |""                                        |
-|config.tokenhandler.dex.issuerURL    |Dex url                                      |""                                        |
+|config.tokenhandler.caCertPath       |CA cert for Oidc used self-signed cert       |""                                        |
+|config.tokenhandler.oidc.clientID    |client ID for Oidc                           |""                                        |
+|config.tokenhandler.oidc.issuerURL   |Oidc url                                     |""                                        |
 |config.rbachandler.githubOrg         |specified github organization                |""                                        |
 |config.rbachandler.customGroups      |custom group mapping, more details in [JWT-to-RBAC](https://github.com/banzaicloud/jwt-to-rbac)|[]|
