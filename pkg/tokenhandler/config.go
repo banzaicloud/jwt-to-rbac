@@ -15,7 +15,7 @@
 package tokenhandler
 
 type Config struct {
-	Dex struct {
+	OIDC struct {
 		ClientID  string
 		IssuerURL string
 	}

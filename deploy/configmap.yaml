@@ -6,13 +6,13 @@ metadata:
 data:
   config.yaml: |-
     app:
-      addr: ":5555" 
+      addr: ":5555"
     log:
       level: "4"
       format: "json"
       noColor: true
     tokenhandler:
-      dex:
+      oidc:
         clientID: example-app
         issuerURL: "http://dex/dex"
     rbachandler:

@@ -28,7 +28,7 @@ import (
 )
 
 type Config struct {
-	// Dex configuration
+	// Oidc configuration
 	Tokenhandler tokenhandler.Config
 	// rbachandler config
 	Rbachandler rbachandler.Config

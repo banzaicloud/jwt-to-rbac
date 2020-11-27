@@ -26,7 +26,7 @@ import (
 	"github.com/goph/emperror"
 )
 
-// FederatedClaims dex
+// FederatedClaims oidc
 type FederatedClaims struct {
 	ConnectorID string `json:"connector_id"`
 	UserID      string `json:"user_id"`
@@ -62,18 +62,18 @@ func appendCACertPoll(config *Config) (*http.Client, error) {
 }
 
 func initProvider(config *Config) (*oidc.IDTokenVerifier, error) {
-	// Initialize a provider by specifying dex's issuer URL.
+	// Initialize a provider by specifying oidc's issuer URL.
 	httpClient, err := appendCACertPoll(config)
 	if err != nil {
 		return nil, err
 	}
 	ctx := oidc.ClientContext(context.Background(), httpClient)
-	provider, err := oidc.NewProvider(ctx, config.Dex.IssuerURL)
+	provider, err := oidc.NewProvider(ctx, config.OIDC.IssuerURL)
 	if err != nil {
-		return nil, emperror.WrapWith(err, "provider init failed", "issuerURL", config.Dex.IssuerURL)
+		return nil, emperror.WrapWith(err, "provider init failed", "issuerURL", config.OIDC.IssuerURL)
 	}
 	// Create an ID token parser, but only trust ID tokens issued to "ClientID"
-	idTokenVerifier := provider.Verifier(&oidc.Config{ClientID: config.Dex.ClientID})
+	idTokenVerifier := provider.Verifier(&oidc.Config{ClientID: config.OIDC.ClientID})
 	return idTokenVerifier, nil
 }
 
