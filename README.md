@@ -24,7 +24,7 @@ JWT-to-RBAC is a core part of [Banzai Cloud Pipeline](https://banzaicloud.com/),
 
 There are some pre-requirements to kick this of for your own testing.
 
-* Configured Dex server which issues JWT tokens. If you want to issue tokens with Dex you have to configure it with LDAP connector. You can use the Banzai Cloud [Dex chart](https://github.com/banzaicloud/banzai-charts/tree/master/dex).
+* Configured Dex server as OIDC provider which issues JWT tokens. If you want to issue tokens with Dex you have to configure it with LDAP connector. You can use the Banzai Cloud [Dex chart](https://github.com/banzaicloud/banzai-charts/tree/master/dex).
 * GitHub account assigned for an organization or configured LDAP server - you can use the [openldap](https://github.com/osixia/docker-openldap) Docker image
 * Authentication application which uses Dex as an OpenID connector (in our case is [Pipeline](https://github.com/banzaicloud/pipeline).
 
@@ -32,7 +32,7 @@ There are some pre-requirements to kick this of for your own testing.
 
 The whole process is broken down to two main parts:
 
-* Dex auth flow
+* Dex (OIDC) auth flow
 * jwt-to-rbac ServiceAccount creation flow
 
 **Dex authentication flow:**
@@ -47,7 +47,7 @@ The whole process is broken down to two main parts:
 
 1. Authentication App has ID token (JWT)
 2. POST ID token to jwt-to-rbac App
-3. jwt-to-rbac validates ID token with Dex
+3. jwt-to-rbac validates ID token with Dex or other OIDC prvider
 4. jwt-to-rbac extracts username, groups and so on from the token
 5. jwt-to-rbac calls API server to crate `ServiceAccount`, `ClusterRoles` and `ClusterRoleBindings`
 6. jwt-to-rbac get service account token and sends it to Authentication App
@@ -195,7 +195,7 @@ log:
   noColor: true
 
 tokenhandler:
-  dex:
+  oidc:
     clientID: example-app
     issuerURL: "http://dex/dex"
 
@@ -244,7 +244,7 @@ kubectl port-forward svc/jwt-to-rbac 5555
 
 Now you can communicate with the jwt-to-rbac app.
 
-### 2. POST ID token issued by Dex to jwt-to-rbac API
+### 2. POST ID token issued by Oidc to jwt-to-rbac API
 ```shell
 curl --request POST \
   --url http://localhost:5555/rbac/ \
