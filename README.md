@@ -30,6 +30,17 @@ There are some pre-requirements to kick this of for your own testing.
 
 > Dex acts as a shim between a client app and the upstream identity provider. The client only needs to understand OpenID Connect to query Dex.
 
+>The issued ID tokens must contain the following claims:
+>  - name: string
+>  - email: string
+>  - email_verified: bool
+>  - groups: list of strings
+>  - federated_claims: object
+>
+>federated_claims must contain:
+>  - connector_id: string (github/ldal/local)
+>  - user_id: string
+
 The whole process is broken down to two main parts:
 
 * Dex (OIDC) auth flow
