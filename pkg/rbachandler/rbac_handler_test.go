@@ -96,7 +96,7 @@ func TestGenerateRbacResources(t *testing.T) {
 	assert.NoError(err)
 	roleSuccess := assert.Equal(len(testRbacResources.clusterRoles), 1)
 	assert.Equal(len(testRbacResources.clusterRoleBindings), 2)
-	assert.Equal(testRbacResources.serviceAccount.name, "janedoe-example-com")
+	assert.Equal(testRbacResources.serviceAccount.Name, "janedoe-example-com")
 	if roleSuccess {
 		assert.Equal(testRbacResources.clusterRoles[0].name, "developers-from-jwt")
 	}
@@ -112,7 +112,7 @@ func TestGenerateRbacResources(t *testing.T) {
 	assert.NoError(err)
 	assert.Equal(len(testRbacResources.clusterRoles), 0)
 	assert.Equal(len(testRbacResources.clusterRoleBindings), 1)
-	assert.Equal(testRbacResources.serviceAccount.name, "janedoe-example-com")
+	assert.Equal(testRbacResources.serviceAccount.Name, "janedoe-example-com")
 	bindNames = nil
 	roleNames = nil
 	for _, crBind := range testRbacResources.clusterRoleBindings {
@@ -141,7 +141,7 @@ func TestGenerateRbacResourcesWithNameSpaces(t *testing.T) {
 	roleSuccess := assert.Equal(len(testRbacResources.clusterRoles), 1)
 	assert.Equal(len(testRbacResources.roleBindings), 1)
 	assert.Equal(len(testRbacResources.clusterRoleBindings), 1)
-	assert.Equal(testRbacResources.serviceAccount.name, "janedoe-example-com")
+	assert.Equal(testRbacResources.serviceAccount.Name, "janedoe-example-com")
 	if roleSuccess {
 		assert.Equal(testRbacResources.clusterRoles[0].name, "developers-from-jwt")
 	}
@@ -167,7 +167,7 @@ func TestGenerateRbacResourcesWithNameSpaces(t *testing.T) {
 	assert.NoError(err)
 	assert.Equal(len(testRbacResources.clusterRoles), 0)
 	assert.Equal(len(testRbacResources.clusterRoleBindings), 1)
-	assert.Equal(testRbacResources.serviceAccount.name, "janedoe-example-com")
+	assert.Equal(testRbacResources.serviceAccount.Name, "janedoe-example-com")
 	bindNames = nil
 	roleNames = nil
 	for _, crBind := range testRbacResources.clusterRoleBindings {
