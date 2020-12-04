@@ -31,6 +31,14 @@ type jwtToken struct {
 	Token string `json:"token"`
 }
 
+// createRBACResponse
+type createRBACResponse struct {
+	Email           string
+	Groups          []string
+	FederatedClaims tokenhandler.FederatedClaims
+	ServiceAccount  string
+}
+
 // HTTPController collects the greeting use cases and exposes them as HTTP handlers.
 type HTTPController struct {
 	TConf  *tokenhandler.Config
@@ -90,12 +98,20 @@ func (a *HTTPController) handleRBACResources(w http.ResponseWriter, r *http.Requ
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
-		err = rbachandler.CreateRBAC(user, a.RConf, a.Logger)
+		serviceAccount, err := rbachandler.CreateRBAC(user, a.RConf, a.Logger)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
-		b, _ := json.Marshal(user)
+		a.Logger.Info("test", map[string]interface{}{
+			"test": serviceAccount.Name,
+		})
+		createRBACResponse := createRBACResponse{}
+		createRBACResponse.Email = user.Email
+		createRBACResponse.Groups = user.Groups
+		createRBACResponse.FederatedClaims = user.FederatedClaims
+		createRBACResponse.ServiceAccount = serviceAccount.Name
+		b, _ := json.Marshal(createRBACResponse)
 		w.WriteHeader(http.StatusCreated)
 		_, _ = w.Write(b)
 

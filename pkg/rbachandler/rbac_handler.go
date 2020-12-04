@@ -75,8 +75,8 @@ type roleBinding struct {
 }
 
 // serviceAccount implements create ServiceAccount
-type serviceAccount struct {
-	name      string
+type ServiceAccount struct {
+	Name      string
 	labels    labels
 	namespace string
 }
@@ -85,7 +85,7 @@ type rbacResources struct {
 	clusterRoles        []clusterRole
 	clusterRoleBindings []clusterRoleBinding
 	roleBindings        []roleBinding
-	serviceAccount      serviceAccount
+	serviceAccount      ServiceAccount
 }
 
 // RBACHandler implements getting, creating and deleting resources
@@ -221,8 +221,8 @@ func (rh *RBACHandler) listServiceAccount() ([]string, error) {
 	return serviceAccList, nil
 }
 
-func (rh *RBACHandler) createServiceAccount(sa *serviceAccount) error {
-	if _, err := rh.getAndCheckSA(sa.name); err == nil {
+func (rh *RBACHandler) createServiceAccount(sa *ServiceAccount) error {
+	if _, err := rh.getAndCheckSA(sa.Name); err == nil {
 		return nil
 	}
 	saObj := &apicorev1.ServiceAccount{
@@ -231,7 +231,7 @@ func (rh *RBACHandler) createServiceAccount(sa *serviceAccount) error {
 			APIVersion: "v1",
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      sa.name,
+			Name:      sa.Name,
 			Namespace: sa.namespace,
 			Labels:    sa.labels,
 		},
@@ -482,8 +482,8 @@ func generateRbacResources(user *tokenhandler.User, config *Config, nameSpaces [
 	rbacResources := &rbacResources{
 		clusterRoles:        clusterRoles,
 		clusterRoleBindings: clusterRoleBindings,
-		serviceAccount: serviceAccount{
-			name:   saName,
+		serviceAccount: ServiceAccount{
+			Name:   saName,
 			labels: defaultLabel,
 		},
 		roleBindings: roleBindings,
@@ -510,43 +510,43 @@ func generateClusterRoleRBACResources(config *Config, logger logur.Logger) (*rba
 }
 
 // CreateRBAC create RBAC resources
-func CreateRBAC(user *tokenhandler.User, config *Config, logger logur.Logger) error {
+func CreateRBAC(user *tokenhandler.User, config *Config, logger logur.Logger) (*ServiceAccount, error) {
 	logger = log.WithFields(logger, map[string]interface{}{"package": "rbachandler"})
 
 	rbacHandler, err := NewRBACHandler(config.KubeConfig, logger)
 	if err != nil {
-		return err
+		return &ServiceAccount{}, err
 	}
 	rbacResources, err := generateRbacResources(user, config, []string{"default"}, logger)
 	if err != nil {
 		logger.Error(err.Error(), nil)
-		return err
+		return &ServiceAccount{}, err
 	}
 	if err := rbacHandler.createServiceAccount(&rbacResources.serviceAccount); err != nil {
 		logger.Error(err.Error(), nil)
-		return err
+		return &rbacResources.serviceAccount, err
 	}
 	if len(rbacResources.clusterRoles) > 0 {
 		for _, clusterRole := range rbacResources.clusterRoles {
 			if err := rbacHandler.createClusterRole(&clusterRole); err != nil {
 				logger.Error(err.Error(), nil)
-				return err
+				return &rbacResources.serviceAccount, err
 			}
 		}
 	}
 	for _, clusterRoleBinding := range rbacResources.clusterRoleBindings {
 		if err := rbacHandler.createClusterRoleBinding(&clusterRoleBinding); err != nil {
 			logger.Error(err.Error(), nil)
-			return err
+			return &rbacResources.serviceAccount, err
 		}
 	}
 	for _, roleBinding := range rbacResources.roleBindings {
 		if err := rbacHandler.createRoleBinding(&roleBinding); err != nil {
 			logger.Error(err.Error(), nil)
-			return err
+			return &rbacResources.serviceAccount, err
 		}
 	}
-	return nil
+	return &rbacResources.serviceAccount, nil
 }
 
 func (rh *RBACHandler) getAndCheckSA(saName string) (*apicorev1.ServiceAccount, error) {
