@@ -5,6 +5,7 @@ on:
     paths-ignore:
       - 'README.md'
       - 'charts/**'
+      - 'docs/**'
 
 jobs:
 
