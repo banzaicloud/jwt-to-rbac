@@ -1,0 +1,20 @@
+config:
+  staticClients:
+  - id: example-app
+    redirectURIs:
+    - 'http://127.0.0.1:5555/callback'
+    name: 'example-app'
+    secret: ZXhhbXBsZS1hcHAtc2VjcmV0
+
+  connectors:
+  - type: github
+    # Required field for connector id.
+    id: github
+    # Required field for connector name.
+    name: GitHub
+    config:
+      # Credentials can be string literals or pulled from the environment.
+      clientID: GITHUB_CLIENT_ID
+      clientSecret: GITHUB_CLIENT_SECRET
+      redirectURI: http://127.0.0.1:5556/dex/callback
+      loadAllGroups: true
