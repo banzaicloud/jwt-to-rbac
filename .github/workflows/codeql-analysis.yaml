@@ -6,6 +6,7 @@ on:
     paths-ignore:
       - 'README.md'
       - 'charts/**'
+      - 'docs/**'
   schedule:
     - cron: '0 19 * * 0'
 
