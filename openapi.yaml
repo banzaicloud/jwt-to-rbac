@@ -1,0 +1,189 @@
+openapi: '3.0.0'
+info:
+  version: 0.5.0
+  title: JWT to RBAC
+  license:
+    name: Apache License Version 2.0
+servers:
+  - url: 127.0.0.1:5555
+paths:
+  /rbac/:
+    get:
+      summary: List all RBAC resources
+      operationId: listRbac
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Rbac'
+    post:
+      summary: Create service account, cluster role and cluster role binding
+      operationId: createRbac
+      requestBody:
+        description: An ID token that is used to create RBAC resources
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/IdToken'
+      responses:
+        '200':
+          description: An object that represents
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/IdTokenClaims'
+        '500':
+          description: "Invalid request body or internal server error"
+          content:
+            text/plain:
+              schema:
+                type: string
+                example: "missing federatedClaims: jwt doesn't contain required federatedClaims"
+  /tokens/{saNme}:
+    get:
+      summary: 'Get service account token with default TTL of 24 hours'
+      operationId: getSaToken
+      parameters:
+        - name: saNme
+          in: path
+          required: true
+          description: Service account name
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Expected response to a valid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SaToken'
+    post:
+      summary: Get service account token and set its TTL
+      operationId: Get service account token with TTL
+      parameters:
+        - name: saNme
+          in: path
+          required: true
+          description: Service account name
+          schema:
+            type: string
+      requestBody:
+        description: JWT that is used to create RBAC resources
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SaTokenRequest'
+      responses:
+        '200':
+          description: Expected response to a valid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SaToken'
+components:
+  schemas:
+    IdTokenClaims:
+      example:
+        Email: janedoe@example.com
+        FederatedClaims:
+          connector_id: ldap
+          user_id: cn=jane,ou=People,dc=example,dc=org
+        Groups:
+          - admins
+          - developers
+      properties:
+        Email:
+          type: string
+        FederatedClaims:
+          properties:
+            connector_id:
+              type: string
+              enum:
+                - ldap
+                - local
+                - github
+            user_id:
+              type: string
+          required:
+            - connector_id
+            - user_id
+          type: object
+      required:
+        - Email
+        - FederatedClaims
+
+    RbacCollection:
+      example:
+        crole_list:
+          - developers-from-jwt
+        crolebind_list:
+          - janedoe-example-com-admin-binding
+          - janedoe-example-com-developers-from-jwt-binding
+        sa_list:
+          - janedoe-example-com
+      properties:
+        crole_list:
+          items:
+            type: string
+          type: array
+        crolebind_list:
+          items:
+            type: string
+          type: array
+        sa_list:
+          items:
+            type: string
+          type: array
+      required:
+        - sa_list
+        - crole_list
+        - crolebind_list
+      type: object
+
+    IdToken:
+      properties:
+        token:
+          description: JSON Web token
+          type: string
+      required:
+        - token
+      type: object
+
+    SaToken:
+      example:
+        - data:
+            ca.crt: example-ca-cer-base64
+            namespace: ZGVmYXVsdA==
+            token: example-k8s-sa-token-base64
+          name: janedoe-example-com-token-m4gbj
+      items:
+        properties:
+          data:
+            properties:
+              ca.crt:
+                type: string
+              namespace:
+                type: string
+              token:
+                type: string
+            required:
+              - ca.crt
+              - namespace
+              - token
+            type: object
+          name:
+            type: string
+        required:
+          - name
+          - data
+        type: object
+      type: array
+
+    SaTokenRequest:
+      properties:
+        duration:
+          type: string
