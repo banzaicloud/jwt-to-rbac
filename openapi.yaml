@@ -95,6 +95,7 @@ components:
         Groups:
           - admins
           - developers
+        ServiceAccount: janedoe-example-com
       properties:
         Email:
           type: string
@@ -112,9 +113,12 @@ components:
             - connector_id
             - user_id
           type: object
+        ServiceAccount:
+          type: string
       required:
         - Email
         - FederatedClaims
+        - ServiceAccount
 
     RbacCollection:
       example:
