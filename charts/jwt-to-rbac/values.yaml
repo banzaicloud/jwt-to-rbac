@@ -32,12 +32,15 @@ config:
     noColor: true
   tokenhandler:
     caCertPath: ""
+    insecure: false
     oidc:
       clientID: ""
       issuerURL: ""
+
   rbachandler:
     githubOrg: ""
     customGroups: []
+    tokenTTL: "24h"
 
 ingress:
   enabled: false

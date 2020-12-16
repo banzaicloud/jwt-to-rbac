@@ -35,7 +35,9 @@ The following table lists configurable parameters of the `jwt-to-rbac` chart and
 |config.log.format                    |jwt-to-rbac log format                       |"json"                                    |
 |config.log.noColor                   |jwt-to-rbac log noColor                      |true                                      |
 |config.tokenhandler.caCertPath       |CA cert for Oidc used self-signed cert       |""                                        |
+|config.tokenhandler.insecure         |Turn off cert verification                   |false                                     |
 |config.tokenhandler.oidc.clientID    |client ID for Oidc                           |""                                        |
 |config.tokenhandler.oidc.issuerURL   |Oidc url                                     |""                                        |
 |config.rbachandler.githubOrg         |specified github organization                |""                                        |
 |config.rbachandler.customGroups      |custom group mapping, more details in [JWT-to-RBAC](https://github.com/banzaicloud/jwt-to-rbac)|[]|
+|config.rbachandler.tokenTTL          |TTL of the generated tokens                  |"24h"|
