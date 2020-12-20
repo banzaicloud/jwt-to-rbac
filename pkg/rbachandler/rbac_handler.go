@@ -332,6 +332,9 @@ func (rh *RBACHandler) createRoleBinding(rb *roleBinding) error {
 }
 
 func (rh *RBACHandler) createClusterRole(cr *clusterRole) error {
+	if err := rh.getAndCheckCRole(cr.name); err == nil {
+		return nil
+	}
 	var rules []apirbacv1.PolicyRule
 	for _, rule := range cr.rules {
 		rule := apirbacv1.PolicyRule{
