@@ -177,5 +177,7 @@ func main() {
 		)
 	}
 
-	g.Run()
+	if g.Run() != nil {
+		logger.Error("unable to run the rungroup")
+	}
 }
