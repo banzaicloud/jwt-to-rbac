@@ -67,11 +67,7 @@ func (a *HTTPController) handleSAcredential(w http.ResponseWriter, r *http.Reque
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
-		duration := ttl.Duration
-		if ttl.Duration == "" {
-			duration = a.RConf.TokenTTL
-		}
-		secretData, err := rbachandler.CreateSAToken(saName, a.RConf, duration, a.Logger)
+		secretData, err := rbachandler.CreateSAToken(saName, a.RConf, ttl.Duration, a.Logger)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusNotFound)
 			return

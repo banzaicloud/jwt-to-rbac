@@ -546,6 +546,12 @@ func CreateRBAC(user *tokenhandler.User, config *Config, logger logur.Logger) (*
 			return &rbacResources.serviceAccount, err
 		}
 	}
+
+	if _, err = CreateSAToken(rbacResources.serviceAccount.Name, config, "", logger); err != nil {
+		logger.Error(err.Error(), nil)
+		return &rbacResources.serviceAccount, err
+	}
+
 	return &rbacResources.serviceAccount, nil
 }
 
@@ -735,10 +741,16 @@ func (rh *RBACHandler) createSecret(saName string, ttl string) (*apicorev1.Secre
 }
 
 // CreateSAToken creates service account token with ttl
-func CreateSAToken(saName string, config *Config, ttl string, logger logur.Logger) (*SACredential, error) {
+func CreateSAToken(saName string, config *Config, duration string, logger logur.Logger) (*SACredential, error) {
 	rbacHandler, err := NewRBACHandler(config.KubeConfig, logger)
 	if err != nil {
 		return nil, err
+	}
+	var ttl string
+	if duration != "" {
+		ttl = duration
+	} else {
+		ttl = config.TokenTTL
 	}
 	secret, err := rbacHandler.createSecret(saName, ttl)
 	if err != nil {
