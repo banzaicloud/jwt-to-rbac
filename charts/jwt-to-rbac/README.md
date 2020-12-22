@@ -41,3 +41,4 @@ The following table lists configurable parameters of the `jwt-to-rbac` chart and
 |config.rbachandler.githubOrg         |specified github organization                |""                                        |
 |config.rbachandler.customGroups      |custom group mapping, more details in [JWT-to-RBAC](https://github.com/banzaicloud/jwt-to-rbac)|[]|
 |config.rbachandler.tokenTTL          |TTL of the generated tokens                  |"24h"|
+|config.rbachandler.enableSetTTLAPI   |lag for enabling ttl api endpoint            |false|

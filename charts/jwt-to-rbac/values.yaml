@@ -41,6 +41,7 @@ config:
     githubOrg: ""
     customGroups: []
     tokenTTL: "24h"
+    enableSetTTLAPI: false
 
 ingress:
   enabled: false
