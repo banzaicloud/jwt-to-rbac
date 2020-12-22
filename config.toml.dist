@@ -17,6 +17,7 @@ issuerURL = "http://dex/dex"
 [rbachandler]
 kubeConfig: ""
 tokenTTL: "24h"
+enableSetTTL: false
 githubOrg: "github_organization"
 
 [[rbachandler.customGroups]]
