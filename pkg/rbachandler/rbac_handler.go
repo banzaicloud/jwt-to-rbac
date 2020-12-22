@@ -678,16 +678,28 @@ func (rh *RBACHandler) listSACredentials(saName string) ([]*SACredential, error)
 		return nil, err
 	}
 	var saCreds []*SACredential
-	for _, secrets := range saDetails.Secrets {
-		secret, err := rh.getSecret(secrets.Name)
-		if err != nil {
-			return nil, err
+
+	labelSelect := fmt.Sprintf("%s=%s", defautlLabelKey, defaultLabel[defautlLabelKey])
+	listOptions := metav1.ListOptions{
+		LabelSelector: labelSelect,
+	}
+	secrets, err := rh.coreClientSet.Secrets(saDetails.GetNamespace()).List(listOptions)
+
+	for _, s := range secrets.Items {
+		if s.Type == apicorev1.SecretTypeServiceAccountToken {
+			name, _ := s.Annotations[apicorev1.ServiceAccountNameKey]
+			if name == saName {
+				secret, err := rh.getSecret(s.Name)
+				if err != nil {
+					return nil, err
+				}
+				saCred := &SACredential{
+					Name: secret.Name,
+					Data: secret.Data,
+				}
+				saCreds = append(saCreds, saCred)
+			}
 		}
-		saCred := &SACredential{
-			Name: secrets.Name,
-			Data: secret.Data,
-		}
-		saCreds = append(saCreds, saCred)
 	}
 
 	return saCreds, nil
@@ -728,12 +740,12 @@ func (rh *RBACHandler) createSecret(saName string, ttl string) (*apicorev1.Secre
 			Name:      secretName,
 			Namespace: saDetails.Namespace,
 			Annotations: map[string]string{
-				"kubernetes.io/service-account.name": saName,
-				"banzaicloud.io/timetolive":          deleteTime,
+				apicorev1.ServiceAccountNameKey: saName,
+				"banzaicloud.io/timetolive":     deleteTime,
 			},
 			Labels: defaultLabel,
 		},
-		Type: "kubernetes.io/service-account-token",
+		Type: apicorev1.SecretTypeServiceAccountToken,
 	}
 	secret, err := rh.coreClientSet.Secrets("default").Create(secretObj)
 	if err != nil {
