@@ -15,10 +15,11 @@
 package rbachandler
 
 type Config struct {
-	CustomGroups []CustomGroup
-	KubeConfig   string
-	TokenTTL     string
-	GithubOrg    string
+	CustomGroups    []CustomGroup
+	KubeConfig      string
+	TokenTTL        string
+	GithubOrg       string
+	EnableSetTTLAPI bool
 }
 
 type CustomGroup struct {

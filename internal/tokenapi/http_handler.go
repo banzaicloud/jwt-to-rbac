@@ -56,6 +56,10 @@ func (a *HTTPController) handleSAcredential(w http.ResponseWriter, r *http.Reque
 	w.Header().Set("Content-Type", "application/json")
 	switch r.Method {
 	case "POST":
+		if !a.RConf.EnableSetTTLAPI {
+			http.Error(w, "The method is disabled", http.StatusMethodNotAllowed)
+			return
+		}
 		saName := r.URL.Path[len(APIEndPoint):]
 		body, err := ioutil.ReadAll(r.Body)
 		if err != nil {
