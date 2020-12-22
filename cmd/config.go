@@ -53,7 +53,7 @@ func Configure(v *viper.Viper, p *pflag.FlagSet) {
 	v.SetDefault("log.level", "info")
 	v.SetDefault("log.noColor", true)
 	v.SetDefault("rbachandler.tokenTTL", "24h")
-	v.SetDefault("rbachandler.enableSetTTL", false)
+	v.SetDefault("rbachandler.enableCreateSAToken", false)
 	v.SetDefault("tokenhandler.insecure", false)
 
 	v.AllowEmptyEnv(true)

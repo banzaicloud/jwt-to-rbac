@@ -684,10 +684,12 @@ func (rh *RBACHandler) listSACredentials(saName string) ([]*SACredential, error)
 		LabelSelector: labelSelect,
 	}
 	secrets, err := rh.coreClientSet.Secrets(saDetails.GetNamespace()).List(listOptions)
-
+	if err != nil {
+		return nil, err
+	}
 	for _, s := range secrets.Items {
 		if s.Type == apicorev1.SecretTypeServiceAccountToken {
-			name, _ := s.Annotations[apicorev1.ServiceAccountNameKey]
+			name := s.Annotations[apicorev1.ServiceAccountNameKey]
 			if name == saName {
 				secret, err := rh.getSecret(s.Name)
 				if err != nil {
