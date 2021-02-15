@@ -1,8 +1,8 @@
-name: "CodeQL"
+name: "Static analysis"
 
 on:
-  push:
-    branches: [master, ]
+  pull_request:
+    branches: [master]
     paths-ignore:
       - 'README.md'
       - 'charts/**'
@@ -53,3 +53,22 @@ jobs:
 
     - name: Perform CodeQL Analysis
       uses: github/codeql-action/analyze@v1
+
+  gosec:
+    name: GoSec
+    runs-on: ubuntu-latest
+    env:
+      GO111MODULE: on
+    steps:
+      - name: Checkout Source
+        uses: actions/checkout@v2
+      - name: Run Gosec Security Scanner
+        uses: securego/gosec@master
+        with:
+          # we let the report trigger content trigger a failure using the GitHub Security features.
+          args: '-no-fail -fmt sarif -out gosec-results.sarif ./...'
+      - name: Upload SARIF file
+        uses: github/codeql-action/upload-sarif@v1
+        with:
+          # Path to SARIF file relative to the root of the repository
+          sarif_file: gosec-results.sarif
