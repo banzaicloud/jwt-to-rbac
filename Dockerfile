@@ -11,7 +11,7 @@ RUN go mod download
 COPY . /build
 RUN go install ./cmd
 
-FROM alpine:3.13.3
+FROM alpine:3.13.4
 
 COPY --from=builder /go/bin/cmd /usr/local/bin/jwt-to-rbac
 COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
