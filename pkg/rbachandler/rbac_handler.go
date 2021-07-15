@@ -309,6 +309,7 @@ func (rh *RBACHandler) createRoleBinding(rb *roleBinding) error {
 			ObjectMeta: metav1.ObjectMeta{
 				Name:   rb.name,
 				Labels: rb.labels,
+				OwnerReferences: []metav1.OwnerReference{},
 			},
 			Subjects: subjects,
 			RoleRef: apirbacv1.RoleRef{
@@ -317,12 +318,7 @@ func (rh *RBACHandler) createRoleBinding(rb *roleBinding) error {
 				Name:     rb.roleName,
 			},
 		}
-		ownerReferences, err := rh.getSAReference(rb.saName)
-		if err != nil {
-			return err
-		}
-		bindObj.SetOwnerReferences(ownerReferences)
-		_, err = rh.rbacClientSet.RoleBindings(ns).Create(bindObj)
+		_, err := rh.rbacClientSet.RoleBindings(ns).Create(bindObj)
 		if err != nil {
 			return emperror.WrapWith(err, "create rolebinding failed", "RoleBinding", rb.name)
 		}
