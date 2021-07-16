@@ -69,6 +69,7 @@ func (rh *RBACHandler) evaluateClusterRoles(config *Config, logger logur.Logger,
 	}
 	logger.Debug("Applying custom groups rules")
 	for _, clusterRole := range rbacResources.clusterRoles {
+		clusterRole := clusterRole
 		if err := rbacHandler.createClusterRole(&clusterRole); err != nil {
 			return err
 		}

@@ -531,6 +531,7 @@ func CreateRBAC(user *tokenhandler.User, config *Config, logger logur.Logger) (*
 	}
 	if len(rbacResources.clusterRoles) > 0 {
 		for _, clusterRole := range rbacResources.clusterRoles {
+			clusterRole := clusterRole
 			if err := rbacHandler.createClusterRole(&clusterRole); err != nil {
 				logger.Error(err.Error(), nil)
 				return &rbacResources.serviceAccount, err
@@ -538,12 +539,14 @@ func CreateRBAC(user *tokenhandler.User, config *Config, logger logur.Logger) (*
 		}
 	}
 	for _, clusterRoleBinding := range rbacResources.clusterRoleBindings {
+		clusterRoleBinding := clusterRoleBinding
 		if err := rbacHandler.createClusterRoleBinding(&clusterRoleBinding); err != nil {
 			logger.Error(err.Error(), nil)
 			return &rbacResources.serviceAccount, err
 		}
 	}
 	for _, roleBinding := range rbacResources.roleBindings {
+		roleBinding := roleBinding
 		if err := rbacHandler.createRoleBinding(&roleBinding); err != nil {
 			logger.Error(err.Error(), nil)
 			return &rbacResources.serviceAccount, err
