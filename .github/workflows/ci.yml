@@ -3,33 +3,31 @@ on:
   pull_request:
     branches: [master]
     paths-ignore:
-      - 'README.md'
-      - 'charts/**'
-      - 'docs/**'
+      - "README.md"
+      - "charts/**"
+      - "docs/**"
 
 jobs:
-
   build:
     name: Build
     runs-on: ubuntu-latest
 
     steps:
+      - name: Set up Go 1.16
+        uses: actions/setup-go@v1
+        with:
+          go-version: 1.16
 
-    - name: Set up Go 1.16
-      uses: actions/setup-go@v1
-      with:
-        go-version: 1.16
+      - name: Check out code
+        uses: actions/checkout@v1
 
-    - name: Check out code
-      uses: actions/checkout@v1
+      - name: Check licenses
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: make license-check
 
-    - name: Check licenses
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      run: make license-check
-
-    - name: Build code
-      run: make build
+      - name: Build code
+        run: make build
 
   acceptance-test:
     name: Acceptance test
@@ -39,28 +37,27 @@ jobs:
       VERSION: latest
 
     steps:
+      - name: Set up Go 1.16
+        uses: actions/setup-go@v1
+        with:
+          go-version: 1.16
 
-    - name: Set up Go 1.16
-      uses: actions/setup-go@v1
-      with:
-        go-version: 1.16
+      - name: Checkout code
+        uses: actions/checkout@v2
 
-    - name: Checkout code
-      uses: actions/checkout@v2
+      - name: Build Docker image
+        run: |
+          make docker
 
-    - name: Build Docker image
-      run: |
-        make docker
+      - name: Create k8s Kind Cluster
+        uses: helm/kind-action@v1.2.0
+        with:
+          cluster_name: "acceptance-test"
 
-    - name: Create k8s Kind Cluster
-      uses: helm/kind-action@v1.0.0
-      with:
-        cluster_name: "acceptance-test"
+      - name: Load Docker images to kind
+        run: |
+          kind load docker-image --name acceptance-test banzaicloud/jwt-to-rbac:latest
 
-    - name: Load Docker images to kind
-      run: |
-        kind load docker-image --name acceptance-test banzaicloud/jwt-to-rbac:latest
-
-    - name: Run make check
-      run: |
-        make check
+      - name: Run make check
+        run: |
+          make check
