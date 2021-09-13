@@ -187,6 +187,50 @@ func TestGenerateRbacResourcesWithNameSpaces(t *testing.T) {
 
 }
 
+func TestGenerateRbacResourcesWithEmailWithSpecialCharacters(t *testing.T) {
+	logger := createLogger()
+	assert := assert.New(t)
+	groups := []string{"admins", "developers"}
+	federatedClaims := tokenhandler.FederatedClaims{
+		ConnectorID: "ldap",
+		UserID:      "cn=jane,ou=People,dc=example,dc=org",
+	}
+	user := &tokenhandler.User{
+		Email:           "jane.doe_foo@example.com",
+		Groups:          groups,
+		FederatedClaims: federatedClaims,
+	}
+	testRbacResources, err := generateRbacResources(user, createFakeConfig("developers"), []string{"default"}, logger)
+	assert.NoError(err)
+	roleSuccess := assert.Equal(len(testRbacResources.clusterRoles), 1)
+	assert.Equal(len(testRbacResources.clusterRoleBindings), 2)
+	assert.Equal(testRbacResources.serviceAccount.Name, "jane-doe-foo-example-com")
+	if roleSuccess {
+		assert.Equal(testRbacResources.clusterRoles[0].name, "developers-from-jwt")
+	}
+	var bindNames, roleNames []string
+	for _, crBind := range testRbacResources.clusterRoleBindings {
+		bindNames = append(bindNames, crBind.name)
+		roleNames = append(roleNames, crBind.roleName)
+	}
+	assert.ElementsMatch(bindNames, []string{"jane-doe-foo-example-com-admin-binding", "jane-doe-foo-example-com-developers-from-jwt-binding"})
+	assert.ElementsMatch(roleNames, []string{"admin", "developers-from-jwt"})
+
+	testRbacResources, err = generateRbacResources(user, createFakeConfig("fakegroup"), []string{"default"}, logger)
+	assert.NoError(err)
+	assert.Equal(len(testRbacResources.clusterRoles), 0)
+	assert.Equal(len(testRbacResources.clusterRoleBindings), 1)
+	assert.Equal(testRbacResources.serviceAccount.Name, "jane-doe-foo-example-com")
+	bindNames = nil
+	roleNames = nil
+	for _, crBind := range testRbacResources.clusterRoleBindings {
+		bindNames = append(bindNames, crBind.name)
+		roleNames = append(roleNames, crBind.roleName)
+	}
+	assert.ElementsMatch(bindNames, []string{"jane-doe-foo-example-com-admin-binding"})
+	assert.ElementsMatch(roleNames, []string{"admin"})
+}
+
 func TestGenerateClusterRole(t *testing.T) {
 	assert := assert.New(t)
 	cRole, err := generateClusterRole("developers", createFakeConfig("developers"))
