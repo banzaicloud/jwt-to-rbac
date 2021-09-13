@@ -422,7 +422,7 @@ func generateRbacResources(user *tokenhandler.User, config *Config, nameSpaces [
 		saName = user.FederatedClaims.UserID
 		groupList = githubRoleParser(user.Groups, config.GithubOrg)
 	case "ldap", "local":
-		r := strings.NewReplacer("@", "-", ".", "-")
+		r := strings.NewReplacer("@", "-", ".", "-", "_", "-")
 		saName = r.Replace(user.Email)
 		groupList = user.Groups
 	default:
