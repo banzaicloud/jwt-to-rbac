@@ -1,4 +1,4 @@
-FROM golang:1.17.1-alpine AS builder
+FROM golang:1.17.3-alpine AS builder
 
 RUN apk add --update --no-cache ca-certificates git
 RUN apk add build-base
@@ -11,7 +11,7 @@ RUN go mod download
 COPY . /build
 RUN go install ./cmd
 
-FROM alpine:3.14.2
+FROM alpine:3.14.3
 
 COPY --from=builder /go/bin/cmd /usr/local/bin/jwt-to-rbac
 COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
