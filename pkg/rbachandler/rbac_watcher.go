@@ -142,6 +142,9 @@ func checkClusterRole(config *Config, logger logur.Logger) error {
 	customGroups := rbacHandler.listCustomGroups(config)
 
 	removeCustomGroupsDifference(existingCustomGroups, customGroups, config, logger)
+	if err != nil {
+		return err
+	}
 
 	return nil
 }
@@ -155,7 +158,10 @@ func removeCustomGroupsDifference(existingClusterRoles, existingCustomGroups []s
 
     for _, x := range existingClusterRoles {
         if _, found := mb[x]; !found {
-			DeleteClusterRole(x + "-from-jwt", config, logger)
+			err := DeleteClusterRole(x + "-from-jwt", config, logger)
+			if err != nil {
+				return err
+			}
         }
     }
     return nil
