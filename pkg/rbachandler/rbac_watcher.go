@@ -141,7 +141,7 @@ func checkClusterRole(config *Config, logger logur.Logger) error {
 
 	customGroups := rbacHandler.listCustomGroups(config)
 
-	removeCustomGroupsDifference(existingCustomGroups, customGroups, config, logger)
+	err = removeCustomGroupsDifference(existingCustomGroups, customGroups, config, logger)
 	if err != nil {
 		return err
 	}
