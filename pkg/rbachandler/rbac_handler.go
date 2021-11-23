@@ -245,9 +245,6 @@ func (rh *RBACHandler) createServiceAccount(sa *ServiceAccount) error {
 }
 
 func (rh *RBACHandler) createClusterRoleBinding(crb *clusterRoleBinding) error {
-	if err := rh.getAndCheckCRoleBinding(crb.name); err == nil {
-		return nil
-	}
 	var subjects []apirbacv1.Subject
 	for _, ns := range crb.nameSpace {
 		subject := apirbacv1.Subject{
@@ -287,9 +284,6 @@ func (rh *RBACHandler) createClusterRoleBinding(crb *clusterRoleBinding) error {
 }
 
 func (rh *RBACHandler) createRoleBinding(rb *roleBinding) error {
-	if err := rh.getAndCheckRoleBinding(rb.name, rb.nameSpace); err == nil {
-		return nil
-	}
 	var subjects []apirbacv1.Subject
 	for _, ns := range rb.nameSpace {
 		subject := apirbacv1.Subject{
@@ -328,9 +322,6 @@ func (rh *RBACHandler) createRoleBinding(rb *roleBinding) error {
 }
 
 func (rh *RBACHandler) createClusterRole(cr *clusterRole) error {
-	if err := rh.getAndCheckCRole(cr.name); err == nil {
-		return nil
-	}
 	var rules []apirbacv1.PolicyRule
 	for _, rule := range cr.rules {
 		rule := apirbacv1.PolicyRule{
@@ -569,52 +560,6 @@ func (rh *RBACHandler) getAndCheckSA(saName string) (*apicorev1.ServiceAccount, 
 			"service_account", saName)
 	}
 	return saDetails, nil
-}
-
-func (rh *RBACHandler) getAndCheckCRole(CRName string) error {
-	cRole, err := rh.rbacClientSet.ClusterRoles().Get(CRName, metav1.GetOptions{})
-	if err == nil {
-		if label, ok := cRole.ObjectMeta.Labels[defautlLabelKey]; !ok || label != defaultLabel[defautlLabelKey] {
-			return emperror.WrapWith(errors.New("label mismatch in clusterrole"),
-				"there is a ClusterRole without required label",
-				defautlLabelKey, defaultLabel[defautlLabelKey],
-				"cluster_role", CRName)
-		}
-		return nil
-	}
-	return err
-}
-
-func (rh *RBACHandler) getAndCheckCRoleBinding(CRBindingName string) error {
-	cRoleBind, err := rh.rbacClientSet.ClusterRoleBindings().Get(CRBindingName, metav1.GetOptions{})
-	if err == nil {
-		if label, ok := cRoleBind.ObjectMeta.Labels[defautlLabelKey]; !ok || label != defaultLabel[defautlLabelKey] {
-			return emperror.WrapWith(errors.New("label mismatch in clusterrole"),
-				"there is a ClusterRoleBinding without required label",
-				defautlLabelKey, defaultLabel[defautlLabelKey],
-				"cluster_rolebinding", CRBindingName)
-		}
-		return nil
-	}
-	return err
-}
-
-func (rh *RBACHandler) getAndCheckRoleBinding(RBindingName string, NameSpaces []string) error {
-
-	for _, namespace := range NameSpaces {
-		roleBind, err := rh.rbacClientSet.RoleBindings(namespace).Get(RBindingName, metav1.GetOptions{})
-		if err == nil {
-			if label, ok := roleBind.ObjectMeta.Labels[defautlLabelKey]; !ok || label != defaultLabel[defautlLabelKey] {
-				return emperror.WrapWith(errors.New("label mismatch in clusterrole"),
-					"there is a RoleBinding without required label",
-					defautlLabelKey, defaultLabel[defautlLabelKey],
-					"rolebinding", RBindingName)
-			}
-			continue
-		}
-		return err
-	}
-	return nil
 }
 
 func (rh *RBACHandler) getSAReference(saName string) ([]metav1.OwnerReference, error) {
