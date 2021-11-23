@@ -349,6 +349,20 @@ func (rh *RBACHandler) createClusterRole(cr *clusterRole) error {
 	return nil
 }
 
+func (rh *RBACHandler) getAndCheckCRole(CRName string) error {
+	cRole, err := rh.rbacClientSet.ClusterRoles().Get(CRName, metav1.GetOptions{})
+	if err == nil {
+		if label, ok := cRole.ObjectMeta.Labels[defautlLabelKey]; !ok || label != defaultLabel[defautlLabelKey] {
+			return emperror.WrapWith(errors.New("label mismatch in clusterrole"),
+				"there is a ClusterRole without required label",
+				defautlLabelKey, defaultLabel[defautlLabelKey],
+				"cluster_role", CRName)
+		}
+		return nil
+	}
+	return err
+}
+
 func generateRules(groupName string, config *Config) []rule {
 	var cRules []rule
 	for _, cGroup := range config.CustomGroups {
@@ -588,6 +602,20 @@ func (rh *RBACHandler) removeServiceAccount(saName string, logger logur.Logger) 
 	return nil
 }
 
+func (rh *RBACHandler) removeClusterRole(clusterRole string, logger logur.Logger) error {
+	if err := rh.getAndCheckCRole(clusterRole); err != nil {
+		return err
+	}
+	deleteOptions := &metav1.DeleteOptions{}
+	bg := metav1.DeletePropagationBackground
+	deleteOptions.PropagationPolicy = &bg
+	err := rh.rbacClientSet.ClusterRoles().Delete(clusterRole, deleteOptions)
+	if err != nil {
+		return emperror.WrapWith(err, "unable to delete ClusterRole", "cluster_role", clusterRole)
+	}
+	return nil
+}
+
 // DeleteRBAC deletes RBAC resources
 func DeleteRBAC(saName string, config *Config, logger logur.Logger) error {
 	rbacHandler, err := NewRBACHandler(config.KubeConfig, logger)
@@ -595,6 +623,19 @@ func DeleteRBAC(saName string, config *Config, logger logur.Logger) error {
 		return err
 	}
 	if err := rbacHandler.removeServiceAccount(saName, logger); err != nil {
+		logger.Error(err.Error(), nil)
+		return err
+	}
+	return nil
+}
+
+// DeleteClusterRole deletes ClusterRole resources
+func DeleteClusterRole(clusterRole string, config *Config, logger logur.Logger) error {
+	rbacHandler, err := NewRBACHandler(config.KubeConfig, logger)
+	if err != nil {
+		return err
+	}
+	if err := rbacHandler.removeClusterRole(clusterRole, logger); err != nil {
 		logger.Error(err.Error(), nil)
 		return err
 	}
@@ -752,4 +793,14 @@ func tokenRandString(n int) string {
 		b[i] = letterRunes[seededRand.Intn(l)]
 	}
 	return "-token-" + string(b)
+}
+
+func (rh *RBACHandler) listCustomGroups(config *Config) ([]string) {
+	var customGroups []string
+
+	for _, group := range config.CustomGroups {
+		customGroups = append(customGroups, group.GroupName)
+	}
+
+	return customGroups
 }

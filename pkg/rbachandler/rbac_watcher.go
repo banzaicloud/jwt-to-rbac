@@ -16,6 +16,7 @@ package rbachandler
 
 import (
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/goph/emperror"
@@ -59,6 +60,11 @@ func WatchClusterRoles(config *Config, logger logur.Logger) error {
 
 func (rh *RBACHandler) evaluateClusterRoles(config *Config, logger logur.Logger, t time.Time) error {
 	rbacHandler, err := NewRBACHandler(config.KubeConfig, logger)
+	if err != nil {
+		return err
+	}
+
+	err = checkClusterRole(config, logger)
 	if err != nil {
 		return err
 	}
@@ -115,4 +121,42 @@ func (rh *RBACHandler) checkTTL(secretName string) error {
 		}
 	}
 	return nil
+}
+
+func checkClusterRole(config *Config, logger logur.Logger) error {
+	var existingCustomGroups []string
+	rbacHandler, err := NewRBACHandler(config.KubeConfig, logger)
+	if err != nil {
+		return err
+	}
+
+	existingClusterRoles, err := rbacHandler.listClusterroles()
+	if err != nil {
+		return err
+	}
+
+	for _, clusterRole := range existingClusterRoles {
+		existingCustomGroups = append(existingCustomGroups, strings.ReplaceAll(clusterRole, "-from-jwt", ""))
+	}
+
+	customGroups := rbacHandler.listCustomGroups(config)
+
+	removeCustomGroupsDifference(existingCustomGroups, customGroups, config, logger)
+
+	return nil
+}
+
+func removeCustomGroupsDifference(existingClusterRoles, existingCustomGroups []string, config *Config, logger logur.Logger) error {
+
+    mb := make(map[string]struct{}, len(existingCustomGroups))
+    for _, x := range existingCustomGroups {
+        mb[x] = struct{}{}
+    }
+
+    for _, x := range existingClusterRoles {
+        if _, found := mb[x]; !found {
+			DeleteClusterRole(x + "-from-jwt", config, logger)
+        }
+    }
+    return nil
 }
