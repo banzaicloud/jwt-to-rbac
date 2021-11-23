@@ -187,6 +187,32 @@ func (rh *RBACHandler) listClusterroleBindings() ([]string, error) {
 	return cRoleBindList, nil
 }
 
+func (rh *RBACHandler) deleteLinkedCRoleBinding(crole string) error{
+	bindings := rh.rbacClientSet.ClusterRoleBindings()
+	labelSelector := fmt.Sprintf("crole=%s", crole)
+	listOptions := metav1.ListOptions{
+		LabelSelector: labelSelector,
+	}
+	err := bindings.DeleteCollection(&metav1.DeleteOptions{}, listOptions)
+	if err != nil {
+		return emperror.WrapWith(err, "unable to delete collection of clusterrolebindings", "ListOptions", metav1.ListOptions{})
+	}
+	return nil
+}
+
+func (rh *RBACHandler) deleteLinkedRoleBinding(crole string, namespace string) error{
+	bindings := rh.rbacClientSet.RoleBindings(namespace)
+	labelSelector := fmt.Sprintf("crole=%s", crole)
+	listOptions := metav1.ListOptions{
+		LabelSelector: labelSelector,
+	}
+	err := bindings.DeleteCollection(&metav1.DeleteOptions{}, listOptions)
+	if err != nil {
+		return emperror.WrapWith(err, "unable to delete collection of clusterrolebindings", "ListOptions", metav1.ListOptions{})
+	}
+	return nil
+}
+
 func (rh *RBACHandler) listClusterroles() ([]string, error) {
 	clusterRoles := rh.rbacClientSet.ClusterRoles()
 	labelSelect := fmt.Sprintf("%s=%s", defautlLabelKey, defaultLabel[defautlLabelKey])
@@ -255,6 +281,14 @@ func (rh *RBACHandler) createClusterRoleBinding(crb *clusterRoleBinding) error {
 		}
 		subjects = append(subjects, subject)
 	}
+
+	customLabels := map[string]string{
+		"crole": crb.roleName,
+	}
+	for key, value := range customLabels {
+		crb.labels[key] = value
+	}
+
 	bindObj := &apirbacv1.ClusterRoleBinding{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "ClusterRoleBinding",
@@ -294,6 +328,13 @@ func (rh *RBACHandler) createRoleBinding(rb *roleBinding) error {
 			Namespace: rb.saNameSpace[0],
 		}
 		subjects = append(subjects, subject)
+
+		customLabels := map[string]string{
+			"crole": rb.roleName,
+		}
+		for key, value := range customLabels {
+			rb.labels[key] = value
+		}
 
 		bindObj := &apirbacv1.RoleBinding{
 			TypeMeta: metav1.TypeMeta{
@@ -803,4 +844,19 @@ func (rh *RBACHandler) listCustomGroups(config *Config) ([]string) {
 	}
 
 	return customGroups
+}
+
+func (rh *RBACHandler) listNamespaces() ([]string, error) {
+	var rnamespace []string
+	namespacelist, err :=rh.coreClientSet.Namespaces().List(metav1.ListOptions{})
+
+	if err != nil {
+		return nil, emperror.WrapWith(err, "List namespaces failed", "listNamespaces")
+	}
+
+	for _, namespace := range namespacelist.Items{
+		rnamespace = append(rnamespace, namespace.Name)
+	}
+
+	return rnamespace, nil
 }

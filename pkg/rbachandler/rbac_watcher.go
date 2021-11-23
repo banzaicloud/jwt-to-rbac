@@ -149,16 +149,34 @@ func checkClusterRole(config *Config, logger logur.Logger) error {
 	return nil
 }
 
-func removeCustomGroupsDifference(existingClusterRoles, existingCustomGroups []string, config *Config, logger logur.Logger) error {
+func removeCustomGroupsDifference(existingClusterRoles []string, configCustomGroups []string, config *Config, logger logur.Logger) error {
+	rbacHandler, err := NewRBACHandler(config.KubeConfig, logger)
+	if err != nil {
+		return err
+	}
 
-    mb := make(map[string]struct{}, len(existingCustomGroups))
-    for _, x := range existingCustomGroups {
+    mb := make(map[string]struct{}, len(configCustomGroups))
+    for _, x := range configCustomGroups {
         mb[x] = struct{}{}
     }
 
     for _, x := range existingClusterRoles {
         if _, found := mb[x]; !found {
-			err := DeleteClusterRole(x + "-from-jwt", config, logger)
+			rbacHandler.deleteLinkedCRoleBinding(x + "-from-jwt")
+			if err != nil {
+				return err
+			}
+			namespaces, err := rbacHandler.listNamespaces()
+			if err != nil {
+				return err
+			}
+			for _, namespace := range namespaces {
+				rbacHandler.deleteLinkedRoleBinding(x + "-from-jwt", namespace)
+				if err != nil {
+					return err
+				}
+			}
+			err = DeleteClusterRole(x + "-from-jwt", config, logger)
 			if err != nil {
 				return err
 			}
