@@ -162,7 +162,7 @@ func removeCustomGroupsDifference(existingClusterRoles []string, configCustomGro
 
     for _, x := range existingClusterRoles {
         if _, found := mb[x]; !found {
-			rbacHandler.deleteLinkedCRoleBinding(x + "-from-jwt")
+			err = rbacHandler.deleteLinkedCRoleBinding(x + "-from-jwt")
 			if err != nil {
 				return err
 			}
@@ -171,7 +171,7 @@ func removeCustomGroupsDifference(existingClusterRoles []string, configCustomGro
 				return err
 			}
 			for _, namespace := range namespaces {
-				rbacHandler.deleteLinkedRoleBinding(x + "-from-jwt", namespace)
+				err = rbacHandler.deleteLinkedRoleBinding(x + "-from-jwt", namespace)
 				if err != nil {
 					return err
 				}
