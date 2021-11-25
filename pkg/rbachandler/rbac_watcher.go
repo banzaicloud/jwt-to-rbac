@@ -16,6 +16,7 @@ package rbachandler
 
 import (
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/goph/emperror"
@@ -59,6 +60,11 @@ func WatchClusterRoles(config *Config, logger logur.Logger) error {
 
 func (rh *RBACHandler) evaluateClusterRoles(config *Config, logger logur.Logger, t time.Time) error {
 	rbacHandler, err := NewRBACHandler(config.KubeConfig, logger)
+	if err != nil {
+		return err
+	}
+
+	err = checkClusterRole(config, logger)
 	if err != nil {
 		return err
 	}
@@ -115,4 +121,66 @@ func (rh *RBACHandler) checkTTL(secretName string) error {
 		}
 	}
 	return nil
+}
+
+func checkClusterRole(config *Config, logger logur.Logger) error {
+	var existingCustomGroups []string
+	rbacHandler, err := NewRBACHandler(config.KubeConfig, logger)
+	if err != nil {
+		return err
+	}
+
+	existingClusterRoles, err := rbacHandler.listClusterroles()
+	if err != nil {
+		return err
+	}
+
+	for _, clusterRole := range existingClusterRoles {
+		existingCustomGroups = append(existingCustomGroups, strings.ReplaceAll(clusterRole, "-from-jwt", ""))
+	}
+
+	customGroups := rbacHandler.listCustomGroups(config)
+
+	err = removeCustomGroupsDifference(existingCustomGroups, customGroups, config, logger)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func removeCustomGroupsDifference(existingClusterRoles []string, configCustomGroups []string, config *Config, logger logur.Logger) error {
+	rbacHandler, err := NewRBACHandler(config.KubeConfig, logger)
+	if err != nil {
+		return err
+	}
+
+    mb := make(map[string]struct{}, len(configCustomGroups))
+    for _, x := range configCustomGroups {
+        mb[x] = struct{}{}
+    }
+
+    for _, x := range existingClusterRoles {
+        if _, found := mb[x]; !found {
+			err = rbacHandler.deleteLinkedCRoleBinding(x + "-from-jwt")
+			if err != nil {
+				return err
+			}
+			namespaces, err := rbacHandler.listNamespaces()
+			if err != nil {
+				return err
+			}
+			for _, namespace := range namespaces {
+				err = rbacHandler.deleteLinkedRoleBinding(x + "-from-jwt", namespace)
+				if err != nil {
+					return err
+				}
+			}
+			err = DeleteClusterRole(x + "-from-jwt", config, logger)
+			if err != nil {
+				return err
+			}
+        }
+    }
+    return nil
 }

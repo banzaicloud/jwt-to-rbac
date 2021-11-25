@@ -187,6 +187,32 @@ func (rh *RBACHandler) listClusterroleBindings() ([]string, error) {
 	return cRoleBindList, nil
 }
 
+func (rh *RBACHandler) deleteLinkedCRoleBinding(crole string) error{
+	bindings := rh.rbacClientSet.ClusterRoleBindings()
+	labelSelector := fmt.Sprintf("crole=%s", crole)
+	listOptions := metav1.ListOptions{
+		LabelSelector: labelSelector,
+	}
+	err := bindings.DeleteCollection(&metav1.DeleteOptions{}, listOptions)
+	if err != nil {
+		return emperror.WrapWith(err, "unable to delete collection of clusterrolebindings", "ListOptions", metav1.ListOptions{})
+	}
+	return nil
+}
+
+func (rh *RBACHandler) deleteLinkedRoleBinding(crole string, namespace string) error{
+	bindings := rh.rbacClientSet.RoleBindings(namespace)
+	labelSelector := fmt.Sprintf("crole=%s", crole)
+	listOptions := metav1.ListOptions{
+		LabelSelector: labelSelector,
+	}
+	err := bindings.DeleteCollection(&metav1.DeleteOptions{}, listOptions)
+	if err != nil {
+		return emperror.WrapWith(err, "unable to delete collection of clusterrolebindings", "ListOptions", metav1.ListOptions{})
+	}
+	return nil
+}
+
 func (rh *RBACHandler) listClusterroles() ([]string, error) {
 	clusterRoles := rh.rbacClientSet.ClusterRoles()
 	labelSelect := fmt.Sprintf("%s=%s", defautlLabelKey, defaultLabel[defautlLabelKey])
@@ -245,9 +271,6 @@ func (rh *RBACHandler) createServiceAccount(sa *ServiceAccount) error {
 }
 
 func (rh *RBACHandler) createClusterRoleBinding(crb *clusterRoleBinding) error {
-	if err := rh.getAndCheckCRoleBinding(crb.name); err == nil {
-		return nil
-	}
 	var subjects []apirbacv1.Subject
 	for _, ns := range crb.nameSpace {
 		subject := apirbacv1.Subject{
@@ -258,6 +281,14 @@ func (rh *RBACHandler) createClusterRoleBinding(crb *clusterRoleBinding) error {
 		}
 		subjects = append(subjects, subject)
 	}
+
+	customLabels := map[string]string{
+		"crole": crb.roleName,
+	}
+	for key, value := range customLabels {
+		crb.labels[key] = value
+	}
+
 	bindObj := &apirbacv1.ClusterRoleBinding{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "ClusterRoleBinding",
@@ -287,9 +318,6 @@ func (rh *RBACHandler) createClusterRoleBinding(crb *clusterRoleBinding) error {
 }
 
 func (rh *RBACHandler) createRoleBinding(rb *roleBinding) error {
-	if err := rh.getAndCheckRoleBinding(rb.name, rb.nameSpace); err == nil {
-		return nil
-	}
 	var subjects []apirbacv1.Subject
 	for _, ns := range rb.nameSpace {
 		subject := apirbacv1.Subject{
@@ -300,6 +328,13 @@ func (rh *RBACHandler) createRoleBinding(rb *roleBinding) error {
 			Namespace: rb.saNameSpace[0],
 		}
 		subjects = append(subjects, subject)
+
+		customLabels := map[string]string{
+			"crole": rb.roleName,
+		}
+		for key, value := range customLabels {
+			rb.labels[key] = value
+		}
 
 		bindObj := &apirbacv1.RoleBinding{
 			TypeMeta: metav1.TypeMeta{
@@ -328,9 +363,6 @@ func (rh *RBACHandler) createRoleBinding(rb *roleBinding) error {
 }
 
 func (rh *RBACHandler) createClusterRole(cr *clusterRole) error {
-	if err := rh.getAndCheckCRole(cr.name); err == nil {
-		return nil
-	}
 	var rules []apirbacv1.PolicyRule
 	for _, rule := range cr.rules {
 		rule := apirbacv1.PolicyRule{
@@ -356,6 +388,20 @@ func (rh *RBACHandler) createClusterRole(cr *clusterRole) error {
 		return emperror.WrapWith(err, "create clusterrole failed", "ClusterRole", cr.name)
 	}
 	return nil
+}
+
+func (rh *RBACHandler) getAndCheckCRole(CRName string) error {
+	cRole, err := rh.rbacClientSet.ClusterRoles().Get(CRName, metav1.GetOptions{})
+	if err == nil {
+		if label, ok := cRole.ObjectMeta.Labels[defautlLabelKey]; !ok || label != defaultLabel[defautlLabelKey] {
+			return emperror.WrapWith(errors.New("label mismatch in clusterrole"),
+				"there is a ClusterRole without required label",
+				defautlLabelKey, defaultLabel[defautlLabelKey],
+				"cluster_role", CRName)
+		}
+		return nil
+	}
+	return err
 }
 
 func generateRules(groupName string, config *Config) []rule {
@@ -571,52 +617,6 @@ func (rh *RBACHandler) getAndCheckSA(saName string) (*apicorev1.ServiceAccount, 
 	return saDetails, nil
 }
 
-func (rh *RBACHandler) getAndCheckCRole(CRName string) error {
-	cRole, err := rh.rbacClientSet.ClusterRoles().Get(CRName, metav1.GetOptions{})
-	if err == nil {
-		if label, ok := cRole.ObjectMeta.Labels[defautlLabelKey]; !ok || label != defaultLabel[defautlLabelKey] {
-			return emperror.WrapWith(errors.New("label mismatch in clusterrole"),
-				"there is a ClusterRole without required label",
-				defautlLabelKey, defaultLabel[defautlLabelKey],
-				"cluster_role", CRName)
-		}
-		return nil
-	}
-	return err
-}
-
-func (rh *RBACHandler) getAndCheckCRoleBinding(CRBindingName string) error {
-	cRoleBind, err := rh.rbacClientSet.ClusterRoleBindings().Get(CRBindingName, metav1.GetOptions{})
-	if err == nil {
-		if label, ok := cRoleBind.ObjectMeta.Labels[defautlLabelKey]; !ok || label != defaultLabel[defautlLabelKey] {
-			return emperror.WrapWith(errors.New("label mismatch in clusterrole"),
-				"there is a ClusterRoleBinding without required label",
-				defautlLabelKey, defaultLabel[defautlLabelKey],
-				"cluster_rolebinding", CRBindingName)
-		}
-		return nil
-	}
-	return err
-}
-
-func (rh *RBACHandler) getAndCheckRoleBinding(RBindingName string, NameSpaces []string) error {
-
-	for _, namespace := range NameSpaces {
-		roleBind, err := rh.rbacClientSet.RoleBindings(namespace).Get(RBindingName, metav1.GetOptions{})
-		if err == nil {
-			if label, ok := roleBind.ObjectMeta.Labels[defautlLabelKey]; !ok || label != defaultLabel[defautlLabelKey] {
-				return emperror.WrapWith(errors.New("label mismatch in clusterrole"),
-					"there is a RoleBinding without required label",
-					defautlLabelKey, defaultLabel[defautlLabelKey],
-					"rolebinding", RBindingName)
-			}
-			continue
-		}
-		return err
-	}
-	return nil
-}
-
 func (rh *RBACHandler) getSAReference(saName string) ([]metav1.OwnerReference, error) {
 	saDetails, err := rh.getAndCheckSA(saName)
 	if err != nil {
@@ -643,6 +643,20 @@ func (rh *RBACHandler) removeServiceAccount(saName string, logger logur.Logger) 
 	return nil
 }
 
+func (rh *RBACHandler) removeClusterRole(clusterRole string, logger logur.Logger) error {
+	if err := rh.getAndCheckCRole(clusterRole); err != nil {
+		return err
+	}
+	deleteOptions := &metav1.DeleteOptions{}
+	bg := metav1.DeletePropagationBackground
+	deleteOptions.PropagationPolicy = &bg
+	err := rh.rbacClientSet.ClusterRoles().Delete(clusterRole, deleteOptions)
+	if err != nil {
+		return emperror.WrapWith(err, "unable to delete ClusterRole", "cluster_role", clusterRole)
+	}
+	return nil
+}
+
 // DeleteRBAC deletes RBAC resources
 func DeleteRBAC(saName string, config *Config, logger logur.Logger) error {
 	rbacHandler, err := NewRBACHandler(config.KubeConfig, logger)
@@ -650,6 +664,19 @@ func DeleteRBAC(saName string, config *Config, logger logur.Logger) error {
 		return err
 	}
 	if err := rbacHandler.removeServiceAccount(saName, logger); err != nil {
+		logger.Error(err.Error(), nil)
+		return err
+	}
+	return nil
+}
+
+// DeleteClusterRole deletes ClusterRole resources
+func DeleteClusterRole(clusterRole string, config *Config, logger logur.Logger) error {
+	rbacHandler, err := NewRBACHandler(config.KubeConfig, logger)
+	if err != nil {
+		return err
+	}
+	if err := rbacHandler.removeClusterRole(clusterRole, logger); err != nil {
 		logger.Error(err.Error(), nil)
 		return err
 	}
@@ -807,4 +834,29 @@ func tokenRandString(n int) string {
 		b[i] = letterRunes[seededRand.Intn(l)]
 	}
 	return "-token-" + string(b)
+}
+
+func (rh *RBACHandler) listCustomGroups(config *Config) ([]string) {
+	var customGroups []string
+
+	for _, group := range config.CustomGroups {
+		customGroups = append(customGroups, group.GroupName)
+	}
+
+	return customGroups
+}
+
+func (rh *RBACHandler) listNamespaces() ([]string, error) {
+	var rnamespace []string
+	namespacelist, err :=rh.coreClientSet.Namespaces().List(metav1.ListOptions{})
+
+	if err != nil {
+		return nil, emperror.WrapWith(err, "List namespaces failed", "listNamespaces")
+	}
+
+	for _, namespace := range namespacelist.Items{
+		rnamespace = append(rnamespace, namespace.Name)
+	}
+
+	return rnamespace, nil
 }
