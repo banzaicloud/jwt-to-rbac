@@ -310,7 +310,7 @@ func (rh *RBACHandler) createClusterRoleBinding(crb *clusterRoleBinding) error {
 		return err
 	}
 	bindObj.SetOwnerReferences(ownerReferences)
-	_, err = rh.rbacClientSet.ClusterRoleBindings().Create(bindObj)
+	_, err = rh.rbacClientSet.ClusterRoleBindings().Update(bindObj)
 	if err != nil {
 		return emperror.WrapWith(err, "create clusterrolebinding failed", "ClusterRoleBinding", crb.name)
 	}
@@ -353,7 +353,7 @@ func (rh *RBACHandler) createRoleBinding(rb *roleBinding) error {
 				Name:     rb.roleName,
 			},
 		}
-		_, err := rh.rbacClientSet.RoleBindings(ns).Create(bindObj)
+		_, err := rh.rbacClientSet.RoleBindings(ns).Update(bindObj)
 		if err != nil {
 			return emperror.WrapWith(err, "create rolebinding failed", "RoleBinding", rb.name)
 		}
