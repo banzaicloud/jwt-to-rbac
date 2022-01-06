@@ -42,3 +42,4 @@ The following table lists configurable parameters of the `jwt-to-rbac` chart and
 |config.rbachandler.customGroups      |custom group mapping, more details in [JWT-to-RBAC](https://github.com/banzaicloud/jwt-to-rbac)|[]|
 |config.rbachandler.tokenTTL          |TTL of the generated tokens                  |"24h"|
 |config.rbachandler.enableCreateSAToken |flag for enabling create token api endpoint|false|
+|imagePullSecrets                     |image pull credentials (k8s notation) [doc](https://kubernetes.io/docs/tasks/configure-pod-container/pull-image-private-registry)|[]|
