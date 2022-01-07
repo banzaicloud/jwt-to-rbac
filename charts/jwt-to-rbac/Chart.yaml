@@ -1,5 +1,5 @@
 apiVersion: v2
-appVersion: 0.6.7
+appVersion: 0.6.6
 description: A Helm chart for Kubernetes
 name: jwt-to-rbac
 version: 0.6.7
