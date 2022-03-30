@@ -6,7 +6,7 @@ require (
 	github.com/BurntSushi/toml v0.3.1 // indirect
 	github.com/coreos/go-oidc v2.0.0+incompatible
 	github.com/fsnotify/fsnotify v1.4.7
-	github.com/gogo/protobuf v1.2.0 // indirect
+	github.com/gogo/protobuf v1.3.2 // indirect
 	github.com/google/gofuzz v0.0.0-20170612174753-24818f796faf // indirect
 	github.com/goph/emperror v0.16.0
 	github.com/goph/logur v0.9.0
@@ -21,8 +21,6 @@ require (
 	github.com/spf13/pflag v1.0.3
 	github.com/spf13/viper v1.3.1
 	github.com/stretchr/testify v1.2.2
-	golang.org/x/crypto v0.0.0-20190131182504-b8fe1690c613 // indirect
-	golang.org/x/net v0.0.0-20190125091013-d26f9f9a57f3 // indirect
 	golang.org/x/oauth2 v0.0.0-20190130055435-99b60b757ec1 // indirect
 	golang.org/x/time v0.0.0-20181108054448-85acf8d2951c // indirect
 	gopkg.in/inf.v0 v0.9.1 // indirect
