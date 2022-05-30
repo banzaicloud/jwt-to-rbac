@@ -21,7 +21,7 @@ endif
 DOCKER_TAG ?= $(shell echo ${VERSION} | sed 's/\//-/')
 
 # Dependency versions
-GOLANGCI_VERSION = 1.38.0
+GOLANGCI_VERSION = 1.42.1
 LICENSEI_VERSION = 0.3.1
 
 GOLANG_VERSION = 1.16
@@ -94,7 +94,7 @@ bin/golangci-lint: bin/golangci-lint-${GOLANGCI_VERSION}
 	@ln -sf golangci-lint-${GOLANGCI_VERSION} bin/golangci-lint
 bin/golangci-lint-${GOLANGCI_VERSION}:
 	@mkdir -p bin
-	curl -sfL https://install.goreleaser.com/github.com/golangci/golangci-lint.sh | bash -s -- -b ./bin/ v${GOLANGCI_VERSION}
+	curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s v${GOLANGCI_VERSION}
 	@mv bin/golangci-lint $@
 
 .PHONY: lint
