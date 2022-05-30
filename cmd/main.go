@@ -24,15 +24,16 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/banzaicloud/jwt-to-rbac/internal"
-	"github.com/banzaicloud/jwt-to-rbac/internal/log"
-	"github.com/banzaicloud/jwt-to-rbac/pkg/rbachandler"
 	"github.com/fsnotify/fsnotify"
 	"github.com/goph/emperror"
 	"github.com/oklog/run"
 	"github.com/pkg/errors"
 	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
+
+	"github.com/banzaicloud/jwt-to-rbac/internal"
+	"github.com/banzaicloud/jwt-to-rbac/internal/log"
+	"github.com/banzaicloud/jwt-to-rbac/pkg/rbachandler"
 )
 
 // nolint: gochecknoinits
