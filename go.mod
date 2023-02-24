@@ -14,7 +14,7 @@ require (
 	github.com/spf13/viper v1.3.1
 	github.com/stretchr/testify v1.2.2
 	k8s.io/api v0.0.0-20190111032252-67edc246be36
-	k8s.io/apimachinery v0.0.0-20190201131811-df262fa1a1ba
+	k8s.io/apimachinery v0.15.7
 	k8s.io/client-go v10.0.0+incompatible
 )
 
@@ -48,7 +48,7 @@ require (
 	gopkg.in/inf.v0 v0.9.1 // indirect
 	gopkg.in/square/go-jose.v2 v2.2.2 // indirect
 	gopkg.in/yaml.v2 v2.2.8 // indirect
-	k8s.io/klog v0.1.0 // indirect
+	k8s.io/klog v0.3.1 // indirect
 	sigs.k8s.io/yaml v1.1.0 // indirect
 )
 
