@@ -51,5 +51,3 @@ require (
 	k8s.io/klog v0.1.0 // indirect
 	sigs.k8s.io/yaml v1.1.0 // indirect
 )
-
-replace github.com/belogik/goes => github.com/OwnLocal/goes v1.0.0
