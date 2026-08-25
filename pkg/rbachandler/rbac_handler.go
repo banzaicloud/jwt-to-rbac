@@ -393,7 +393,7 @@ func (rh *RBACHandler) createClusterRole(cr *clusterRole) error {
 func (rh *RBACHandler) getAndCheckCRole(CRName string) error {
 	cRole, err := rh.rbacClientSet.ClusterRoles().Get(CRName, metav1.GetOptions{})
 	if err == nil {
-		if label, ok := cRole.ObjectMeta.Labels[defautlLabelKey]; !ok || label != defaultLabel[defautlLabelKey] {
+		if label, ok := cRole.Labels[defautlLabelKey]; !ok || label != defaultLabel[defautlLabelKey] {
 			return emperror.WrapWith(errors.New("label mismatch in clusterrole"),
 				"there is a ClusterRole without required label",
 				defautlLabelKey, defaultLabel[defautlLabelKey],
@@ -473,13 +473,6 @@ func generateRbacResources(user *tokenhandler.User, config *Config, nameSpaces [
 		groupList = user.Groups
 	default:
 		return nil, emperror.With(errors.New("connector is not implemented yet"), "ConnectorID", user.FederatedClaims.ConnectorID)
-	}
-
-	if err := DeleteRBAC(saName, config, logger); err != nil {
-		if !strings.Contains(err.Error(), "not found") {
-			logger.Error(err.Error(), nil)
-			return nil, err
-		}
 	}
 
 	var clusterRoles []clusterRole
@@ -567,13 +560,18 @@ func CreateRBAC(user *tokenhandler.User, config *Config, logger logur.Logger) (*
 		logger.Error(err.Error(), nil)
 		return &ServiceAccount{}, err
 	}
+	if err := DeleteRBAC(rbacResources.serviceAccount.Name, config, logger); err != nil {
+		if !strings.Contains(err.Error(), "not found") {
+			logger.Error(err.Error(), nil)
+			return &ServiceAccount{}, err
+		}
+	}
 	if err := rbacHandler.createServiceAccount(&rbacResources.serviceAccount); err != nil {
 		logger.Error(err.Error(), nil)
 		return &rbacResources.serviceAccount, err
 	}
 	if len(rbacResources.clusterRoles) > 0 {
 		for _, clusterRole := range rbacResources.clusterRoles {
-			clusterRole := clusterRole
 			if err := rbacHandler.createClusterRole(&clusterRole); err != nil {
 				logger.Error(err.Error(), nil)
 				return &rbacResources.serviceAccount, err
@@ -581,14 +579,12 @@ func CreateRBAC(user *tokenhandler.User, config *Config, logger logur.Logger) (*
 		}
 	}
 	for _, clusterRoleBinding := range rbacResources.clusterRoleBindings {
-		clusterRoleBinding := clusterRoleBinding
 		if err := rbacHandler.createClusterRoleBinding(&clusterRoleBinding); err != nil {
 			logger.Error(err.Error(), nil)
 			return &rbacResources.serviceAccount, err
 		}
 	}
 	for _, roleBinding := range rbacResources.roleBindings {
-		roleBinding := roleBinding
 		if err := rbacHandler.createRoleBinding(&roleBinding); err != nil {
 			logger.Error(err.Error(), nil)
 			return &rbacResources.serviceAccount, err
@@ -608,7 +604,7 @@ func (rh *RBACHandler) getAndCheckSA(saName string) (*apicorev1.ServiceAccount, 
 	if err != nil {
 		return nil, emperror.Wrap(err, "unable to get ServiceAccount details")
 	}
-	if label, ok := saDetails.ObjectMeta.Labels[defautlLabelKey]; !ok || label != defaultLabel[defautlLabelKey] {
+	if label, ok := saDetails.Labels[defautlLabelKey]; !ok || label != defaultLabel[defautlLabelKey] {
 		return nil, emperror.WrapWith(errors.New("label mismatch in serviceaccount"),
 			"getting not jwt-to-rbac generated ServiceAccount is forbidden",
 			defautlLabelKey, defaultLabel[defautlLabelKey],
@@ -626,7 +622,7 @@ func (rh *RBACHandler) getSAReference(saName string) ([]metav1.OwnerReference, e
 		APIVersion: "v1",
 		Kind:       "ServiceAccount",
 		Name:       saName,
-		UID:        saDetails.ObjectMeta.UID,
+		UID:        saDetails.UID,
 	}
 
 	return []metav1.OwnerReference{owner}, nil

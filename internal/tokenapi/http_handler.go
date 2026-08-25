@@ -16,7 +16,7 @@ package tokenapi
 
 import (
 	"encoding/json"
-	"io/ioutil"
+	"io"
 	"net/http"
 
 	"github.com/banzaicloud/jwt-to-rbac/pkg/rbachandler"
@@ -61,7 +61,7 @@ func (a *HTTPController) handleSAcredential(w http.ResponseWriter, r *http.Reque
 			return
 		}
 		saName := r.URL.Path[len(APIEndPoint):]
-		body, err := ioutil.ReadAll(r.Body)
+		body, err := io.ReadAll(r.Body)
 		if err != nil {
 			http.Error(w, "Error reading request body", http.StatusInternalServerError)
 		}

@@ -21,10 +21,10 @@ endif
 DOCKER_TAG ?= $(shell echo ${VERSION} | sed 's/\//-/')
 
 # Dependency versions
-GOLANGCI_VERSION = 1.42.1
-LICENSEI_VERSION = 0.3.1
+GOLANGCI_VERSION = 2.13.1
+LICENSEI_VERSION = 0.9.0
 
-GOLANG_VERSION = 1.16
+GOLANG_VERSION = 1.26
 
 .PHONY: clean
 clean: ## Clean the working area and the project
@@ -94,7 +94,7 @@ bin/golangci-lint: bin/golangci-lint-${GOLANGCI_VERSION}
 	@ln -sf golangci-lint-${GOLANGCI_VERSION} bin/golangci-lint
 bin/golangci-lint-${GOLANGCI_VERSION}:
 	@mkdir -p bin
-	curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s v${GOLANGCI_VERSION}
+	curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/HEAD/install.sh | sh -s v${GOLANGCI_VERSION}
 	@mv bin/golangci-lint $@
 
 .PHONY: lint
