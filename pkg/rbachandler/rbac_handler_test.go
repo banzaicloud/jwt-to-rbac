@@ -240,15 +240,29 @@ func TestGenerateClusterRole(t *testing.T) {
 	assert.EqualError(err, "cannot find specified group in jwt-to-rbac config")
 }
 
+func skipWithoutCluster(t *testing.T, config *Config) {
+	t.Helper()
+	rbacHandler, err := NewRBACHandler(config.KubeConfig, createLogger())
+	if err != nil {
+		t.Skipf("skipping: no usable kubeconfig: %v", err)
+	}
+	if _, err := rbacHandler.listClusterroles(); err != nil {
+		t.Skipf("skipping: no reachable Kubernetes cluster: %v", err)
+	}
+}
+
 func TestListClusterroleBindings(t *testing.T) {
 	assert := assert.New(t)
-	_, err := ListRBACResources(createFakeConfig("developers"), createLogger())
+	config := createFakeConfig("developers")
+	skipWithoutCluster(t, config)
+	_, err := ListRBACResources(config, createLogger())
 	assert.NoError(err)
 }
 
 func TestGetAndCheckSA(t *testing.T) {
 	assert := assert.New(t)
 	config := createFakeConfig("developers")
+	skipWithoutCluster(t, config)
 	rbacHandler, err := NewRBACHandler(config.KubeConfig, createLogger())
 	assert.NoError(err)
 	_, err = rbacHandler.getAndCheckSA("default")

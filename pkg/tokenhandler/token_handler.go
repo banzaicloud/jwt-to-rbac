@@ -19,8 +19,8 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"errors"
-	"io/ioutil"
 	"net/http"
+	"os"
 
 	oidc "github.com/coreos/go-oidc"
 	"github.com/goph/emperror"
@@ -45,7 +45,7 @@ func appendCACertPoll(config *Config) (*http.Client, error) {
 		rootCAs = x509.NewCertPool()
 	}
 	if config.CaCertPath != "" {
-		certs, err := ioutil.ReadFile(config.CaCertPath)
+		certs, err := os.ReadFile(config.CaCertPath)
 		if err != nil {
 			return nil, emperror.WrapWith(err, "Failed to append %q to RootCAs: %v", "cacertpath", config.CaCertPath)
 		}
