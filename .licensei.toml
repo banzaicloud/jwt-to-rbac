@@ -4,6 +4,7 @@ approved = [
   "bsd-3-clause",
   "bsd-2-clause",
   "mpl-2.0",
+  "isc",
 ]
 
 ignored = [
