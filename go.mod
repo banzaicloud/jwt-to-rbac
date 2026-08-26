@@ -1,6 +1,6 @@
 module github.com/banzaicloud/jwt-to-rbac
 
-go 1.26
+go 1.27
 
 require (
 	github.com/coreos/go-oidc v2.0.0+incompatible

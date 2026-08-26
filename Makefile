@@ -24,7 +24,7 @@ DOCKER_TAG ?= $(shell echo ${VERSION} | sed 's/\//-/')
 GOLANGCI_VERSION = 2.13.1
 LICENSEI_VERSION = 0.9.0
 
-GOLANG_VERSION = 1.26
+GOLANG_VERSION = 1.27
 
 .PHONY: clean
 clean: ## Clean the working area and the project
