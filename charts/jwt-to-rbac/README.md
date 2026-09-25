@@ -4,15 +4,12 @@ Helm chart for [JWT-to-RBAC](https://github.com/banzaicloud/jwt-to-rbac) that le
 
 ## Installing the Chart
 
-```bash
-$ helm repo add banzaicloud-stable http://kubernetes-charts.banzaicloud.com/branch/master
-$ helm repo update
-```
+The chart is published to the GitHub Container Registry as an OCI artifact.
 
 Deploying jwt-to-rbac:
 
 ```bash
-$ helm install --name <name> --set config.tokenhandler.oidc.clientID=<client-id> --set config.tokenhandler.oidc.issuerURL=<http://dex-url/dex>
+$ helm install <name> oci://ghcr.io/banzaicloud/charts/jwt-to-rbac --version <chart-version> --set config.tokenhandler.oidc.clientID=<client-id> --set config.tokenhandler.oidc.issuerURL=<http://dex-url/dex>
 ```
 
 ## Configuration
