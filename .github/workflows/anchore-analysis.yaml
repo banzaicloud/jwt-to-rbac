@@ -20,6 +20,7 @@ jobs:
       id: scan
       with:
         image: "localbuild/testimage:latest"
+        severity-cutoff: high
     - name: Upload Anchore Scan Report
       uses: github/codeql-action/upload-sarif@v4
       with:
