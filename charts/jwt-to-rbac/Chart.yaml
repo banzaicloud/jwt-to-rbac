@@ -2,7 +2,7 @@ apiVersion: v2
 appVersion: 0.6.6
 description: A Helm chart for Kubernetes
 name: jwt-to-rbac
-version: 0.6.7
+version: 0.6.8
 home: https://github.com/banzaicloud/jwt-to-rbac
 maintainers:
 - name: BanzaiCloud
