@@ -18,6 +18,7 @@ import (
 	"errors"
 	"fmt"
 	"math/rand"
+	"sort"
 	"strings"
 	"time"
 
@@ -33,6 +34,7 @@ import (
 	clientrbacv1 "k8s.io/client-go/kubernetes/typed/rbac/v1"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
+	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 )
 
 const defautlLabelKey string = "generatedby"
@@ -93,6 +95,7 @@ type RBACHandler struct {
 	coreClientSet *clientcorev1.CoreV1Client
 	rbacClientSet *clientrbacv1.RbacV1Client
 	logger        logur.Logger
+	host          string
 }
 
 type RBACList struct {
@@ -108,38 +111,38 @@ type SACredential struct {
 
 // NewRBACHandler create RBACHandler
 func NewRBACHandler(kubeconfig string, logger logur.Logger) (*RBACHandler, error) {
-	coreClientSet, rbacClientSet, err := getK8sClientSets(kubeconfig, logger)
+	coreClientSet, rbacClientSet, host, err := getK8sClientSets(kubeconfig, logger)
 	if err != nil {
 		return nil, err
 	}
-	return &RBACHandler{coreClientSet, rbacClientSet, logger}, nil
+	return &RBACHandler{coreClientSet, rbacClientSet, logger, host}, nil
 }
 
-func getK8sClientSets(kubeconfig string, logger logur.Logger) (*clientcorev1.CoreV1Client, *clientrbacv1.RbacV1Client, error) {
+func getK8sClientSets(kubeconfig string, logger logur.Logger) (*clientcorev1.CoreV1Client, *clientrbacv1.RbacV1Client, string, error) {
 	var config *rest.Config
 	var err error
 	if kubeconfig == "" {
 		logger.Debug("using in-cluster configuration", nil)
 		config, err = rest.InClusterConfig()
 		if err != nil {
-			return nil, nil, emperror.Wrap(err, "failed to get incluster config")
+			return nil, nil, "", emperror.Wrap(err, "failed to get incluster config")
 		}
 	} else {
 		logger.Debug("using configuration from", map[string]interface{}{"kubeconfig": kubeconfig})
 		config, err = clientcmd.BuildConfigFromFlags("", kubeconfig)
 		if err != nil {
-			return nil, nil, emperror.WrapWith(err, "failed to get kubernetes config", "kubeconfig", kubeconfig)
+			return nil, nil, "", emperror.WrapWith(err, "failed to get kubernetes config", "kubeconfig", kubeconfig)
 		}
 	}
 	coreClientSet, err := clientcorev1.NewForConfig(config)
 	if err != nil {
-		return nil, nil, emperror.Wrap(err, "cannot create new core clientSet")
+		return nil, nil, "", emperror.Wrap(err, "cannot create new core clientSet")
 	}
 	rbacClientSet, err := clientrbacv1.NewForConfig(config)
 	if err != nil {
-		return nil, nil, emperror.Wrap(err, "cannot create new rbac clientSet")
+		return nil, nil, "", emperror.Wrap(err, "cannot create new rbac clientSet")
 	}
-	return coreClientSet, rbacClientSet, nil
+	return coreClientSet, rbacClientSet, config.Host, nil
 }
 
 // ListRBACResources clusterrolebindings
@@ -705,11 +708,27 @@ func GetK8sToken(saName string, config *Config, logger logur.Logger) ([]*SACrede
 }
 
 func (rh *RBACHandler) listSACredentials(saName string) ([]*SACredential, error) {
-	saDetails, err := rh.getAndCheckSA(saName)
+	secrets, err := rh.listSASecrets(saName)
 	if err != nil {
 		return nil, err
 	}
 	var saCreds []*SACredential
+	for _, secret := range secrets {
+		saCreds = append(saCreds, &SACredential{
+			Name: secret.Name,
+			Data: secret.Data,
+		})
+	}
+
+	return saCreds, nil
+}
+
+func (rh *RBACHandler) listSASecrets(saName string) ([]*apicorev1.Secret, error) {
+	saDetails, err := rh.getAndCheckSA(saName)
+	if err != nil {
+		return nil, err
+	}
+	var saSecrets []*apicorev1.Secret
 
 	labelSelect := fmt.Sprintf("%s=%s", defautlLabelKey, defaultLabel[defautlLabelKey])
 	listOptions := metav1.ListOptions{
@@ -727,16 +746,75 @@ func (rh *RBACHandler) listSACredentials(saName string) ([]*SACredential, error)
 				if err != nil {
 					return nil, err
 				}
-				saCred := &SACredential{
-					Name: secret.Name,
-					Data: secret.Data,
-				}
-				saCreds = append(saCreds, saCred)
+				saSecrets = append(saSecrets, secret)
 			}
 		}
 	}
 
-	return saCreds, nil
+	return saSecrets, nil
+}
+
+func latestTokenSecret(secrets []*apicorev1.Secret) (*apicorev1.Secret, error) {
+	var tokenSecrets []*apicorev1.Secret
+	for _, secret := range secrets {
+		if len(secret.Data[apicorev1.ServiceAccountTokenKey]) > 0 {
+			tokenSecrets = append(tokenSecrets, secret)
+		}
+	}
+	if len(tokenSecrets) == 0 {
+		return nil, errors.New("service account has no token")
+	}
+	sort.SliceStable(tokenSecrets, func(i, j int) bool {
+		return tokenSecrets[j].CreationTimestamp.Before(&tokenSecrets[i].CreationTimestamp)
+	})
+	return tokenSecrets[0], nil
+}
+
+func generateKubeconfig(saName string, clusterName string, server string, secret *apicorev1.Secret) ([]byte, error) {
+	contextName := saName + "@" + clusterName
+	kubeconfig := clientcmdapi.NewConfig()
+	kubeconfig.Clusters[clusterName] = &clientcmdapi.Cluster{
+		Server:                   server,
+		CertificateAuthorityData: secret.Data[apicorev1.ServiceAccountRootCAKey],
+	}
+	kubeconfig.AuthInfos[saName] = &clientcmdapi.AuthInfo{
+		Token: string(secret.Data[apicorev1.ServiceAccountTokenKey]),
+	}
+	kubeconfig.Contexts[contextName] = &clientcmdapi.Context{
+		Cluster:   clusterName,
+		AuthInfo:  saName,
+		Namespace: string(secret.Data[apicorev1.ServiceAccountNamespaceKey]),
+	}
+	kubeconfig.CurrentContext = contextName
+	b, err := clientcmd.Write(*kubeconfig)
+	if err != nil {
+		return nil, emperror.Wrap(err, "failed to serialize kubeconfig")
+	}
+	return b, nil
+}
+
+func GetKubeconfig(saName string, config *Config, logger logur.Logger) ([]byte, error) {
+	rbacHandler, err := NewRBACHandler(config.KubeConfig, logger)
+	if err != nil {
+		return nil, err
+	}
+	secrets, err := rbacHandler.listSASecrets(saName)
+	if err != nil {
+		return nil, err
+	}
+	secret, err := latestTokenSecret(secrets)
+	if err != nil {
+		return nil, emperror.With(err, "service_account", saName)
+	}
+	clusterName := config.ClusterName
+	if clusterName == "" {
+		clusterName = "kubernetes"
+	}
+	server := config.ClusterServer
+	if server == "" {
+		server = rbacHandler.host
+	}
+	return generateKubeconfig(saName, clusterName, server, secret)
 }
 
 func (rh *RBACHandler) getSecret(name string) (*apicorev1.Secret, error) {

@@ -18,11 +18,15 @@ import (
 	"os"
 	"path"
 	"testing"
+	"time"
 
 	"github.com/banzaicloud/jwt-to-rbac/internal/log"
 	"github.com/banzaicloud/jwt-to-rbac/pkg/tokenhandler"
 	"github.com/goph/logur"
 	"github.com/stretchr/testify/assert"
+	apicorev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/tools/clientcmd"
 )
 
 func createFakeConfig(groupName string) *Config {
@@ -296,4 +300,61 @@ func TestGetAndCheckSA(t *testing.T) {
 	assert.NoError(err)
 	_, err = rbacHandler.getAndCheckSA("default")
 	assert.EqualError(err, "getting not jwt-to-rbac generated ServiceAccount is forbidden: label mismatch in serviceaccount")
+}
+
+func tokenSecret(name string, token string, created time.Time) *apicorev1.Secret {
+	data := map[string][]byte{
+		apicorev1.ServiceAccountRootCAKey:    []byte("example-ca"),
+		apicorev1.ServiceAccountNamespaceKey: []byte("default"),
+	}
+	if token != "" {
+		data[apicorev1.ServiceAccountTokenKey] = []byte(token)
+	}
+	return &apicorev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{Name: name, CreationTimestamp: metav1.NewTime(created)},
+		Data:       data,
+	}
+}
+
+func TestLatestTokenSecret(t *testing.T) {
+	assert := assert.New(t)
+	now := time.Now()
+	secret, err := latestTokenSecret([]*apicorev1.Secret{
+		tokenSecret("old", "old-token", now.Add(-2*time.Hour)),
+		tokenSecret("pending", "", now),
+		tokenSecret("new", "new-token", now.Add(-time.Hour)),
+	})
+	assert.NoError(err)
+	assert.Equal("new", secret.Name)
+
+	_, err = latestTokenSecret([]*apicorev1.Secret{tokenSecret("pending", "", now)})
+	assert.Error(err)
+	_, err = latestTokenSecret(nil)
+	assert.Error(err)
+}
+
+func TestGenerateKubeconfig(t *testing.T) {
+	assert := assert.New(t)
+	secret := tokenSecret("janedoe-example-com-token-abcde", "example-token", time.Now())
+	b, err := generateKubeconfig("janedoe-example-com", "example-cluster", "https://example.com:6443", secret)
+	assert.NoError(err)
+
+	kubeconfig, err := clientcmd.Load(b)
+	assert.NoError(err)
+	assert.Equal("janedoe-example-com@example-cluster", kubeconfig.CurrentContext)
+	context := kubeconfig.Contexts[kubeconfig.CurrentContext]
+	if assert.NotNil(context) {
+		assert.Equal("example-cluster", context.Cluster)
+		assert.Equal("janedoe-example-com", context.AuthInfo)
+		assert.Equal("default", context.Namespace)
+	}
+	cluster := kubeconfig.Clusters["example-cluster"]
+	if assert.NotNil(cluster) {
+		assert.Equal("https://example.com:6443", cluster.Server)
+		assert.Equal([]byte("example-ca"), cluster.CertificateAuthorityData)
+	}
+	authInfo := kubeconfig.AuthInfos["janedoe-example-com"]
+	if assert.NotNil(authInfo) {
+		assert.Equal("example-token", authInfo.Token)
+	}
 }
