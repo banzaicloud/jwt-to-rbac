@@ -9,12 +9,11 @@ WORKDIR /build
 COPY go.* /build/
 RUN go mod download
 COPY . /build
-RUN go install ./cmd
+RUN CGO_ENABLED=0 go install ./cmd
 
-FROM alpine:3.24.2
+FROM gcr.io/distroless/static-debian12
 
 COPY --from=builder /go/bin/cmd /usr/local/bin/jwt-to-rbac
-COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
 
 USER 65534:65534
 
