@@ -20,6 +20,8 @@ type Config struct {
 	TokenTTL            string
 	GithubOrg           string
 	EnableCreateSAToken bool
+	ClusterName         string
+	ClusterServer       string
 }
 
 type CustomGroup struct {

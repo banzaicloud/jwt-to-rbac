@@ -42,6 +42,8 @@ config:
     customGroups: []
     tokenTTL: "24h"
     enableSetTTLAPI: false
+    clusterName: "kubernetes"
+    clusterServer: ""
 
 ingress:
   enabled: false
