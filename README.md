@@ -300,10 +300,14 @@ curl --request GET \
 ```
 
 ### 3. GET the default K8s token of `ServiceAccount`
+
+The `/tokens/` endpoints require the ID token of the `ServiceAccount` owner in the `Authorization` header. The token signature is validated with the OIDC provider and the requested `ServiceAccount` must belong to the user of the ID token.
+
 ```shell
 curl --request GET \
   --url http://localhost:5555/tokens/janedoe-example-com \
-  --header 'Content-Type: application/json'
+  --header 'Content-Type: application/json' \
+  --header 'Authorization: Bearer example.jwt.token'
 
 # response:
 [
@@ -322,7 +326,8 @@ curl --request GET \
 ```shell
 curl --request POST \
   --url http://localhost:5555/tokens/janedoe-example-com \
-  --header 'Content-Type: application/json'
+  --header 'Content-Type: application/json' \
+  --header 'Authorization: Bearer example.jwt.token' \
   --data '{"duration": "12h30m"}'
 
 # response:

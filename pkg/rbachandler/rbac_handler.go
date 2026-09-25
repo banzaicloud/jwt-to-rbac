@@ -460,19 +460,29 @@ func githubRoleParser(groups []string, org string) []string {
 	return groupList
 }
 
+func ServiceAccountName(user *tokenhandler.User) (string, error) {
+	switch user.FederatedClaims.ConnectorID {
+	case "github":
+		return user.FederatedClaims.UserID, nil
+	case "ldap", "local":
+		r := strings.NewReplacer("@", "-", ".", "-", "_", "-")
+		return r.Replace(user.Email), nil
+	default:
+		return "", emperror.With(errors.New("connector is not implemented yet"), "ConnectorID", user.FederatedClaims.ConnectorID)
+	}
+}
+
 func generateRbacResources(user *tokenhandler.User, config *Config, nameSpaces []string, logger logur.Logger) (*rbacResources, error) {
-	var saName string
+	saName, err := ServiceAccountName(user)
+	if err != nil {
+		return nil, err
+	}
 	var groupList []string
 	switch user.FederatedClaims.ConnectorID {
 	case "github":
-		saName = user.FederatedClaims.UserID
 		groupList = githubRoleParser(user.Groups, config.GithubOrg)
-	case "ldap", "local":
-		r := strings.NewReplacer("@", "-", ".", "-", "_", "-")
-		saName = r.Replace(user.Email)
-		groupList = user.Groups
 	default:
-		return nil, emperror.With(errors.New("connector is not implemented yet"), "ConnectorID", user.FederatedClaims.ConnectorID)
+		groupList = user.Groups
 	}
 
 	var clusterRoles []clusterRole

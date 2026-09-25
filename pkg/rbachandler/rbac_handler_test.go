@@ -231,6 +231,35 @@ func TestGenerateRbacResourcesWithEmailWithSpecialCharacters(t *testing.T) {
 	assert.ElementsMatch(roleNames, []string{"admin"})
 }
 
+func TestServiceAccountName(t *testing.T) {
+	assert := assert.New(t)
+	tests := []struct {
+		connectorID string
+		email       string
+		userID      string
+		want        string
+		wantErr     bool
+	}{
+		{connectorID: "ldap", email: "jane.doe_foo@example.com", want: "jane-doe-foo-example-com"},
+		{connectorID: "local", email: "janedoe@example.com", want: "janedoe-example-com"},
+		{connectorID: "github", email: "janedoe@example.com", userID: "13311234", want: "13311234"},
+		{connectorID: "saml", email: "janedoe@example.com", wantErr: true},
+	}
+	for _, tt := range tests {
+		user := &tokenhandler.User{
+			Email:           tt.email,
+			FederatedClaims: tokenhandler.FederatedClaims{ConnectorID: tt.connectorID, UserID: tt.userID},
+		}
+		saName, err := ServiceAccountName(user)
+		if tt.wantErr {
+			assert.Error(err)
+			continue
+		}
+		assert.NoError(err)
+		assert.Equal(tt.want, saName)
+	}
+}
+
 func TestGenerateClusterRole(t *testing.T) {
 	assert := assert.New(t)
 	cRole, err := generateClusterRole("developers", createFakeConfig("developers"))

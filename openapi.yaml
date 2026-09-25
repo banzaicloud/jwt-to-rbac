@@ -46,6 +46,8 @@ paths:
     get:
       summary: 'Get service account token with default TTL of 24 hours'
       operationId: getSaToken
+      security:
+        - idToken: []
       parameters:
         - name: saNme
           in: path
@@ -60,9 +62,15 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/SaToken'
+        '401':
+          description: Missing or invalid ID token in the Authorization header
+        '403':
+          description: ID token does not belong to the requested service account
     post:
       summary: Get service account token and set its TTL
       operationId: Get service account token with TTL
+      security:
+        - idToken: []
       parameters:
         - name: saNme
           in: path
@@ -84,7 +92,16 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/SaToken'
+        '401':
+          description: Missing or invalid ID token in the Authorization header
+        '403':
+          description: ID token does not belong to the requested service account
 components:
+  securitySchemes:
+    idToken:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
   schemas:
     IdTokenClaims:
       example:

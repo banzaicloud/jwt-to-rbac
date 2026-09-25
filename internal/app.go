@@ -28,6 +28,6 @@ import (
 func NewApp(tconf *tokenhandler.Config, rconf *rbachandler.Config, logger logur.Logger) http.Handler {
 	mux := http.NewServeMux()
 	mux.Handle(rbacapi.APIEndPoint, rbacapi.NewHTTPHandler(tconf, rconf, logger))
-	mux.Handle(tokenapi.APIEndPoint, tokenapi.NewHTTPHandler(rconf, logger))
+	mux.Handle(tokenapi.APIEndPoint, tokenapi.NewHTTPHandler(tconf, rconf, logger))
 	return mux
 }
