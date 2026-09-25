@@ -233,6 +233,14 @@ insecure = false
 jwt-to-rbac --tokenhandler.insecure=true
 ```
 
+### Define cluster details used in the generated kubeconfig
+```toml
+[rbachandler]
+clusterName = "kubernetes"
+clusterServer = "https://kubernetes.example.com:6443"
+```
+If `clusterServer` is not set, the API server address used by jwt-to-rbac is written to the kubeconfig.
+
 So to conclude on the open source [JWT-to-RBAC](https://github.com/banzaicloud/jwt-to-rbac) project - follow these stpes if you would like to try it or check it out already in action by subscribing to our free developer beta at https://beta.banzaicloud.io/.
 
 ### 1. Deploy jwt-to-rbac to Kubernetes
@@ -345,7 +353,19 @@ curl --request POST \
 
 Now you have a base64 encoded `service account token`.
 
-### 5. Accessing with ServiceAccount token
+### 5. GET a kubeconfig for the `ServiceAccount`
+
+The kubeconfig is generated from the latest token of the `ServiceAccount` and requires the same `Authorization` header as the `/tokens/` endpoints.
+```shell
+curl --request GET \
+  --url http://localhost:5555/kubeconfig/janedoe-example-com \
+  --header 'Authorization: Bearer example.jwt.token' \
+  --output kubeconfig
+
+kubectl --kubeconfig kubeconfig get pod
+```
+
+### 6. Accessing with ServiceAccount token
 
 You can use `service account token` from command line:
 ```shell

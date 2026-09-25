@@ -52,6 +52,7 @@ func newTestHandler(t *testing.T) http.Handler {
 	controller.authorize = fakeAuthorize
 	mux := http.NewServeMux()
 	mux.HandleFunc(APIEndPoint, controller.handleSAcredential)
+	mux.HandleFunc(KubeconfigEndPoint, controller.handleKubeconfig)
 	return mux
 }
 
@@ -104,4 +105,32 @@ func TestHandleSAcredentialRejectsUnverifiableToken(t *testing.T) {
 	rec := httptest.NewRecorder()
 	handler.ServeHTTP(rec, req)
 	assert.Equal(t, http.StatusUnauthorized, rec.Code)
+}
+
+func TestHandleKubeconfigAuth(t *testing.T) {
+	tests := []struct {
+		name          string
+		method        string
+		saName        string
+		authorization string
+		wantStatus    int
+	}{
+		{"missing header", http.MethodGet, "janedoe-example-com", "", http.StatusUnauthorized},
+		{"invalid token", http.MethodGet, "janedoe-example-com", "Bearer bad.token", http.StatusUnauthorized},
+		{"other service account", http.MethodGet, "johndoe-example-com", "Bearer " + validToken, http.StatusForbidden},
+		{"own service account", http.MethodGet, "janedoe-example-com", "Bearer " + validToken, http.StatusNotFound},
+		{"invalid method", http.MethodPost, "janedoe-example-com", "Bearer " + validToken, http.StatusMethodNotAllowed},
+	}
+	handler := newTestHandler(t)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			req := httptest.NewRequest(tt.method, KubeconfigEndPoint+tt.saName, nil)
+			if tt.authorization != "" {
+				req.Header.Set("Authorization", tt.authorization)
+			}
+			rec := httptest.NewRecorder()
+			handler.ServeHTTP(rec, req)
+			assert.Equal(t, tt.wantStatus, rec.Code, rec.Body.String())
+		})
+	}
 }

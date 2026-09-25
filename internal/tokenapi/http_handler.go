@@ -29,6 +29,8 @@ import (
 // APIEndPoint for token handling
 const APIEndPoint = "/tokens/"
 
+const KubeconfigEndPoint = "/kubeconfig/"
+
 // HTTPController collects the greeting use cases and exposes them as HTTP handlers.
 type HTTPController struct {
 	TConf     *tokenhandler.Config
@@ -48,6 +50,7 @@ func NewHTTPHandler(tconf *tokenhandler.Config, rconf *rbachandler.Config, logge
 	mux := http.NewServeMux()
 	controller := NewHTTPController(tconf, rconf, logger)
 	mux.HandleFunc(APIEndPoint, controller.handleSAcredential)
+	mux.HandleFunc(KubeconfigEndPoint, controller.handleKubeconfig)
 	return mux
 }
 
@@ -151,4 +154,24 @@ func (a *HTTPController) handleSAcredential(w http.ResponseWriter, r *http.Reque
 		http.Error(w, "Invalid request method", http.StatusMethodNotAllowed)
 		return
 	}
+}
+
+func (a *HTTPController) handleKubeconfig(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "Invalid request method", http.StatusMethodNotAllowed)
+		return
+	}
+	saName := r.URL.Path[len(KubeconfigEndPoint):]
+	if status, err := a.authenticate(r, saName); err != nil {
+		a.authError(w, status, err)
+		return
+	}
+	kubeconfig, err := rbachandler.GetKubeconfig(saName, a.RConf, a.Logger)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusNotFound)
+		return
+	}
+	w.Header().Set("Content-Type", "application/yaml")
+	w.WriteHeader(http.StatusOK)
+	_, _ = w.Write(kubeconfig)
 }

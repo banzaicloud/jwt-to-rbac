@@ -54,6 +54,7 @@ func Configure(v *viper.Viper, p *pflag.FlagSet) {
 	v.SetDefault("log.noColor", true)
 	v.SetDefault("rbachandler.tokenTTL", "24h")
 	v.SetDefault("rbachandler.enableCreateSAToken", false)
+	v.SetDefault("rbachandler.clusterName", "kubernetes")
 	v.SetDefault("tokenhandler.insecure", false)
 
 	v.AllowEmptyEnv(true)
