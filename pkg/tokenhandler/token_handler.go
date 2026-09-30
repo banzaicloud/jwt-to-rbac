@@ -22,7 +22,7 @@ import (
 	"net/http"
 	"os"
 
-	oidc "github.com/coreos/go-oidc"
+	oidc "github.com/coreos/go-oidc/v3/oidc"
 	"github.com/goph/emperror"
 )
 
