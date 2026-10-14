@@ -21,7 +21,7 @@ endif
 DOCKER_TAG ?= $(shell echo ${VERSION} | sed 's/\//-/')
 
 # Dependency versions
-GOLANGCI_VERSION = 2.13.1
+GOLANGCI_VERSION = 2.14.0
 LICENSEI_VERSION = 0.9.0
 
 GOLANG_VERSION = 1.27
